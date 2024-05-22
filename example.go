@@ -2,6 +2,7 @@ package main
 
 import (
 	"MyGoPj/dism"
+	"MyGoPj/vhd"
 	"errors"
 	"fmt"
 	"golang.org/x/sys/windows"
@@ -9,6 +10,16 @@ import (
 )
 
 func main() {
+
+	testCreateVHD()
+}
+
+// CreateVhdx(path string, maxSizeInGb, blockSizeInMb uint32)
+func testCreateVHD() {
+	vhd.CreateVhdx("C:\\Users\\localuser\\Desktop\\test.vhdx", 1, 1)
+}
+
+func testDisamAPI() {
 	dismSession, err := dism.OpenSession(dism.DISM_ONLINE_IMAGE,
 		"",
 		"",

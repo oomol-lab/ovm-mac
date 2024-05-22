@@ -1,3 +1,21 @@
-Golang Wrapper of `Deployment Image Servicing and Management (DISM) API`
+# Win32API Go Wrapper
 
-UNSTABLE and need test! Do not use!
+## DismAPI
+
+```
+  - DismInitialize
+  - DismOpenSession
+  - DismCloseSession
+  - DismEnableFeature
+  - DismShutdown
+
+```
+
+## VHD
+
+```
+- createVirtualDisk
+- openVirtualDisk
+- detachVirtualDisk
+```
+
