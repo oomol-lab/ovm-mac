@@ -18,4 +18,7 @@
 - openVirtualDisk
 - detachVirtualDisk
 ```
-
+## MPR
+```shell
+- WNetGetUniversalNameW
+```

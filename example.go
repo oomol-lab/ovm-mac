@@ -2,16 +2,24 @@ package main
 
 import (
 	"MyGoPj/dism"
+	"MyGoPj/mpr"
 	"MyGoPj/vhd"
 	"errors"
 	"fmt"
 	"golang.org/x/sys/windows"
+	"os"
 	"syscall"
 )
 
 func main() {
+	testMpr()
+}
 
-	testCreateVHD()
+func testMpr() {
+
+	cwdGo, _ := os.Getwd()
+
+	mpr.WNetGetUniversalNameW(cwdGo)
 }
 
 // CreateVhdx(path string, maxSizeInGb, blockSizeInMb uint32)
