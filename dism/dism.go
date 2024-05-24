@@ -47,7 +47,12 @@ func (s Session) checkError(err error) error {
 			fmt.Errorf("Closing session before reloading failed: %s", err.Error())
 		}
 
-		if err := DismOpenSession(StringToPtrOrNil(s.imagePath), StringToPtrOrNil(s.optWindowsDir), StringToPtrOrNil(s.optSystemDrive), s.Handle); err != nil {
+		if err := DismOpenSession(
+			StringToPtrOrNil(s.imagePath),
+			StringToPtrOrNil(s.optWindowsDir),
+			StringToPtrOrNil(s.optSystemDrive),
+			s.Handle,
+		); err != nil {
 			return fmt.Errorf("Opening session before reloading failed: %s", err.Error())
 		}
 		fmt.Println("Reloaded image session as requested by DISM API")
@@ -75,8 +80,14 @@ func (s Session) Close() error {
 // Ref: https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/dism/disminitialize-function
 //
 // Ref: https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/dism/dismopensession-function
-func OpenSession(imagePath, optWindowsDir, optSystemDrive string, logLevel DismLogLevel, optLogFilePath, optScratchDir string) (Session, error) {
-
+func OpenSession(
+	imagePath,
+	optWindowsDir,
+	optSystemDrive string,
+	logLevel DismLogLevel,
+	optLogFilePath,
+	optScratchDir string,
+) (Session, error) {
 	var handleVal uint32
 	session := Session{
 		Handle:         &handleVal,
@@ -85,11 +96,19 @@ func OpenSession(imagePath, optWindowsDir, optSystemDrive string, logLevel DismL
 		optSystemDrive: optSystemDrive,
 	}
 
-	if err := DismInitialize(logLevel, StringToPtrOrNil(optLogFilePath), StringToPtrOrNil(optScratchDir)); err != nil {
+	if err := DismInitialize(
+		logLevel,
+		StringToPtrOrNil(optLogFilePath),
+		StringToPtrOrNil(optScratchDir),
+	); err != nil {
 		return session, fmt.Errorf("DismInitialize: %w", err)
 	}
 
-	if err := DismOpenSession(StringToPtrOrNil(imagePath), StringToPtrOrNil(""), StringToPtrOrNil(""), session.Handle); err != nil {
+	if err := DismOpenSession(
+		StringToPtrOrNil(imagePath),
+		StringToPtrOrNil(""),
+		StringToPtrOrNil(""), session.Handle,
+	); err != nil {
 		return session, fmt.Errorf("DismOpenSession: %w", err)
 	}
 	return session, nil
@@ -103,7 +122,40 @@ func (s Session) EnableFeature(
 	cancelEvent *windows.Handle,
 	progressCallback unsafe.Pointer,
 ) error {
-	return s.checkError(DismEnableFeature(*s.Handle, StringToPtrOrNil(feature), StringToPtrOrNil(optIdentifier), optPackageIdentifier, false, nil, 0, enableAll, cancelEvent, progressCallback, nil))
+	return s.checkError(
+		DismEnableFeature(
+			*s.Handle,
+			StringToPtrOrNil(feature),
+			StringToPtrOrNil(optIdentifier),
+			optPackageIdentifier,
+			false,
+			nil,
+			0,
+			enableAll,
+			cancelEvent,
+			progressCallback,
+			nil,
+		),
+	)
+}
+
+func (s Session) DisableFeature(
+	feature string,
+	packageName string,
+	removePayload bool,
+	cancelEvent *windows.Handle,
+	progress unsafe.Pointer,
+) error {
+	return s.checkError(
+		DismDisableFeature(
+			*s.Handle,
+			StringToPtrOrNil(feature),
+			StringToPtrOrNil(packageName),
+			removePayload,
+			cancelEvent,
+			progress,
+			nil),
+	)
 }
 
 //go:generate go run golang.org/x/sys/windows/mkwinsyscall -output zdism.go dism.go
@@ -111,4 +163,5 @@ func (s Session) EnableFeature(
 //sys DismOpenSession(ImagePath *uint16, WindowsDirectory *uint16, SystemDrive *uint16, Session *uint32) (e error) = DismAPI.DismOpenSession
 //sys DismCloseSession(Session uint32) (e error) = DismAPI.DismCloseSession
 //sys DismEnableFeature(Session uint32, FeatureName *uint16, Identifier *uint16, PackageIdentifier *DismPackageIdentifier, LimitAccess bool, SourcePaths *string, SourcePathCount uint32, EnableAll bool, CancelEvent *windows.Handle, Progress unsafe.Pointer, UserData unsafe.Pointer) (e error) = DismAPI.DismEnableFeature
+//sys DismDisableFeature(Session uint32,FeatureName *uint16, PackageName *uint16,RemovePayload bool,CancelEvent *windows.Handle, Progress unsafe.Pointer,UserData unsafe.Pointer) (e error) = DismAPI.DismDisableFeature
 //sys DismShutdown() (e error) = DismAPI.DismShutdown

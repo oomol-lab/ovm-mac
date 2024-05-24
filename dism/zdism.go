@@ -40,15 +40,28 @@ func errnoErr(e syscall.Errno) error {
 var (
 	modDismAPI = windows.NewLazySystemDLL("DismAPI.dll")
 
-	procDismCloseSession  = modDismAPI.NewProc("DismCloseSession")
-	procDismEnableFeature = modDismAPI.NewProc("DismEnableFeature")
-	procDismInitialize    = modDismAPI.NewProc("DismInitialize")
-	procDismOpenSession   = modDismAPI.NewProc("DismOpenSession")
-	procDismShutdown      = modDismAPI.NewProc("DismShutdown")
+	procDismCloseSession   = modDismAPI.NewProc("DismCloseSession")
+	procDismDisableFeature = modDismAPI.NewProc("DismDisableFeature")
+	procDismEnableFeature  = modDismAPI.NewProc("DismEnableFeature")
+	procDismInitialize     = modDismAPI.NewProc("DismInitialize")
+	procDismOpenSession    = modDismAPI.NewProc("DismOpenSession")
+	procDismShutdown       = modDismAPI.NewProc("DismShutdown")
 )
 
 func DismCloseSession(Session uint32) (e error) {
 	r0, _, _ := syscall.Syscall(procDismCloseSession.Addr(), 1, uintptr(Session), 0, 0)
+	if r0 != 0 {
+		e = syscall.Errno(r0)
+	}
+	return
+}
+
+func DismDisableFeature(Session uint32, FeatureName *uint16, PackageName *uint16, RemovePayload bool, CancelEvent *windows.Handle, Progress unsafe.Pointer, UserData unsafe.Pointer) (e error) {
+	var _p0 uint32
+	if RemovePayload {
+		_p0 = 1
+	}
+	r0, _, _ := syscall.Syscall9(procDismDisableFeature.Addr(), 7, uintptr(Session), uintptr(unsafe.Pointer(FeatureName)), uintptr(unsafe.Pointer(PackageName)), uintptr(_p0), uintptr(unsafe.Pointer(CancelEvent)), uintptr(Progress), uintptr(UserData), 0, 0)
 	if r0 != 0 {
 		e = syscall.Errno(r0)
 	}
