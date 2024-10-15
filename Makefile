@@ -2,6 +2,8 @@
 
 CGO_CFLAGS=-mmacosx-version-min=12.3
 
+CODESIGN_IDENTITY ?= -
+
 all: help
 
 ##@
@@ -17,7 +19,7 @@ build-arm64: ##@ Build arm64 binary
 out/bin/ovm-arm64: out/bin/ovm-%:
 	@mkdir -p $(@D)
 	CGO_ENABLED=1 CGO_CFLAGS=$(CGO_CFLAGS) CGO_CFLAGS=$(CGO_CFLAGS) GOOS=darwin GOARCH=$* go build -o $@ bauklotze/cmd
-
+	codesign --force --options runtime --sign $(CODESIGN_IDENTITY) $@
 
 ##@
 ##@ Clean commands
