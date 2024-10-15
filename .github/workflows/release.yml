@@ -1,0 +1,60 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+
+permissions:
+  contents: write
+  id-token: write
+  packages: read
+
+jobs:
+  release:
+    runs-on:
+        - self-hosted
+        - macOS
+        - arm64
+    steps:
+      - name: Configure R2 Credentials
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.R2_OOMOL_STATIC_S3_AK }}
+          aws configure set aws_secret_access_key ${{ secrets.R2_OOMOL_STATIC_S3_SK }}
+          aws configure set region auto
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.0
+
+      - name: Build
+        run: make build
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/bin/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Tag Name
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Upload To S3
+        run: |
+          aws s3 cp \
+            ./out/bin/ \
+            --endpoint-url ${{ secrets.R2_OOMOL_STATIC_S3_ENDPOINT }} \
+            s3://oomol-static/ovm-resources/bauklotze/$RELEASE_VERSION \
+            --recursive --exclude "*" --include "ovm*"
