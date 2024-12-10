@@ -11,6 +11,7 @@ require (
 	github.com/containers/storage v1.55.0
 	github.com/coreos/ignition/v2 v2.19.0
 	github.com/crc-org/vfkit v0.5.1
+	github.com/creack/pty v1.1.24
 	github.com/gliderlabs/ssh v0.3.7
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.2

@@ -19,6 +19,7 @@ import (
 	"bauklotze/pkg/machine/ignition"
 	"bauklotze/pkg/machine/sockets"
 	"bauklotze/pkg/machine/vmconfigs"
+	mypty "bauklotze/pkg/pty"
 	"bauklotze/pkg/system"
 
 	"github.com/containers/storage/pkg/fileutils"
@@ -251,11 +252,12 @@ func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootload
 	time.Sleep(ignSleepTime)
 	logrus.Infof("krunkit command-line: %v", krunCmd.Args)
 
-	if err := krunCmd.Start(); err != nil {
-		return nil, nil, fmt.Errorf("failed to start krunkit: %w", err)
-	} else {
-		machine.GlobalCmds.SetKrunCmd(krunCmd)
+	// Run krunkit in pty, the pty should never close because the krunkit is a background process
+	_, err = mypty.RunInPty(krunCmd)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to run krunkit in pty: %w", err)
 	}
+	machine.GlobalCmds.SetKrunCmd(krunCmd)
 
 	mc.AppleKrunkitHypervisor.Krunkit.BinaryPath, _ = define.NewMachineFile(cmdBinaryPath, nil)
 

@@ -262,7 +262,6 @@ func Start(ctx context.Context, mc *vmconfigs.MachineConfig, mp vmconfigs.VMProv
 	}
 
 	maxBackoffs := 3
-
 	if mp.VMType() != define.WSLVirt {
 		connected, sshError, err := conductVMReadinessCheck(mc, maxBackoffs, defaultBackoff, stateF)
 		if err != nil {
