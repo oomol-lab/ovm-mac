@@ -238,4 +238,8 @@ func loggingHook() {
 		level, _ = logrus.ParseLevel("error")
 	}
 	logrus.SetLevel(level)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05.000",
+	})
 }

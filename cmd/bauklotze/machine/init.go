@@ -101,6 +101,11 @@ func initMachine(cmd *cobra.Command, args []string) error {
 
 	initOpts.CommonOptions.ReportURL = cmd.Flag(cmdflags.ReportURLFlag).Value.String()
 	initOpts.CommonOptions.PPID = ppid
+	// Ignition scripts placed in /tmp/initfs will be executed by the ovmounter service
+	initOpts.Volumes = append(initOpts.Volumes, "/tmp/initfs:/tmp/initfs")
+	if err = os.MkdirAll("/tmp/initfs", 0755); err != nil {
+		return fmt.Errorf("failed to create /tmp/initfs: %w", err)
+	}
 
 	// TODO Continue to check the ppid alive
 	// First check the parent process is alive once
