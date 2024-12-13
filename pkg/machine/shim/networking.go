@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	defaultBackoff     = 200 * time.Millisecond
+	defaultBackoff     = 100 * time.Millisecond
 	maxTried           = 200
 	ErrNotRunning      = errors.New("machine not in running state")
 	ErrSSHNotListening = errors.New("machine is not listening on ssh port")
@@ -64,7 +64,7 @@ func conductVMReadinessCheck(mc *vmconfigs.MachineConfig, stateF func() (define.
 		}
 
 		if sshError = machine.CommonSSHSilent(mc.SSH.RemoteUsername, mc.SSH.IdentityPath, mc.Name, mc.SSH.Port, []string{"echo Hello"}); sshError != nil {
-			logrus.Infof("SSH readiness check for machine failed: %v", sshError)
+			logrus.Warnf("SSH readiness check for machine failed: %v", sshError)
 			continue
 		}
 		connected = true

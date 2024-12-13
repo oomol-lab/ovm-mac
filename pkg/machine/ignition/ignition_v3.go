@@ -110,7 +110,7 @@ func (ign *DynamicIgnitionV3) GenerateMountScripts() error {
 	t := template.Must(template.New("VirtioFsMountScriptCodes").Parse(VirtioFSMountScript))
 	mybuff := new(bytes.Buffer)
 	for _, vol := range ign.Mounts {
-		if vol.Type == vmconfigs.VirtIOFS.String() {
+		if vol.Type == vmconfigs.VirtIOFS.String() && !strings.HasPrefix(vol.Target, filepath.Dir(ign.IgnFile.Path)) {
 			data := struct {
 				FsType string
 				Source string

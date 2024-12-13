@@ -9,12 +9,6 @@ mkdir -p "{{.Target}}"
 mount -t "{{.FsType}}" "{{.Tag}}" "{{.Target}}" || echo "Error: Mounting {{.Source}} to {{.Target}} failed"
 `
 
-const BlockDevMountScript = `
-echo "Mounting {{.Source}} to {{.Target}}"
-mkdir -p "{{.Target}}"
-mount "{{.Source}}" "{{.Target}}" || echo "Error: Mounting {{.Source}} to {{.Target}} failed"
-`
-
 const WriteSSHPubKeyScript = `
 echo "Writing SSH public key to /root/.ssh/authorized_keys"
 mkdir -p "/root/.ssh/"
@@ -24,11 +18,6 @@ echo "{{.Target}}" >> "/root/.ssh/authorized_keys"
 const UpdateTimeZoneScript = `
 echo "Setting timezone to {{.TimeZone}}"
 ln -sf "/usr/share/zoneinfo/{{.TimeZone}}" "/etc/localtime"
-`
-
-const FormatAndMountDataScript = `
-echo "Formatting and mounting data disk {{.Target}}"
-
 `
 
 const podmanMachineConfigScript = `
