@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/vmconfigs"
@@ -50,6 +49,62 @@ func (ign *DynamicIgnitionV3) Write() error {
 	return nil
 }
 
+func (ign *DynamicIgnitionV3) GenerateIgnitionConfig(mycode []string) error {
+	ign.CodeBuffer = new(bytes.Buffer)
+
+	err := ign.GenerateMountScripts()
+	if err != nil {
+		return fmt.Errorf("failed to generate mount scripts: %w", err)
+	}
+
+	err = ign.GenerateUserProvidedScripts(mycode)
+	if err != nil {
+		return fmt.Errorf("failed to generate user provided scripts: %w", err)
+	}
+
+	if ign.SSHIdentityPath.GetPath() != "" {
+		err = ign.CopySSHIdPub()
+		if err != nil {
+			return fmt.Errorf("failed to copy ssh id pub: %w", err)
+		}
+	}
+
+	if err = ign.UpdateTimeZone(); err != nil {
+		return fmt.Errorf("failed to update timezone: %w", err)
+	}
+
+	if err = ign.GeneratePodmanMachineConfig(); err != nil {
+		return fmt.Errorf("failed to generate podman machine config: %w", err)
+	}
+
+	return nil
+}
+
+// GenerateUserProvidedScripts Write the user provided scripts to the DynamicIgnitionV3.CodeBuffer
+func (ign *DynamicIgnitionV3) GenerateUserProvidedScripts(mycode []string) error {
+	for _, code := range mycode {
+		ign.CodeBuffer.WriteString(fmt.Sprintln("# User provided script"))
+		ign.CodeBuffer.WriteString(fmt.Sprintf("%s\n", code))
+	}
+	return nil
+}
+
+func (ign *DynamicIgnitionV3) GeneratePodmanMachineConfig() error {
+	t := template.Must(template.New("PodmanMachineConfigScriptCodes").Parse(podmanMachineConfigScript))
+	mybuff := new(bytes.Buffer)
+	data := struct {
+		CurrentVMType string
+	}{
+		CurrentVMType: ign.VMType.String(),
+	}
+
+	if err := t.Execute(mybuff, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+	ign.CodeBuffer.Write(mybuff.Bytes())
+	return nil
+}
+
 // GenerateMountScripts a template for the virtiofs mount script
 func (ign *DynamicIgnitionV3) GenerateMountScripts() error {
 	t := template.Must(template.New("VirtioFsMountScriptCodes").Parse(VirtioFSMountScript))
@@ -77,39 +132,6 @@ func (ign *DynamicIgnitionV3) GenerateMountScripts() error {
 	return nil
 }
 
-// GenerateUserProvidedScripts Write the user provided scripts to the DynamicIgnitionV3.CodeBuffer
-func (ign *DynamicIgnitionV3) GenerateUserProvidedScripts(mycode []string) error {
-	for _, code := range mycode {
-		ign.CodeBuffer.WriteString(code)
-		ign.CodeBuffer.WriteString("\n")
-	}
-
-	return nil
-}
-
-func (ign *DynamicIgnitionV3) GenerateIgnitionConfig(mycode []string) error {
-	ign.CodeBuffer = new(bytes.Buffer)
-
-	err := ign.GenerateMountScripts()
-	if err != nil {
-		return fmt.Errorf("failed to generate mount scripts: %w", err)
-	}
-
-	err = ign.GenerateUserProvidedScripts(mycode)
-	if err != nil {
-		return fmt.Errorf("failed to generate user provided scripts: %w", err)
-	}
-
-	if ign.SSHIdentityPath.GetPath() != "" {
-		err = ign.CopySSHIdPub()
-		if err != nil {
-			return fmt.Errorf("failed to copy ssh id pub: %w", err)
-		}
-	}
-
-	return nil
-}
-
 func (ign *DynamicIgnitionV3) CopySSHIdPub() error {
 	sshkeyData, err := os.ReadFile(ign.SSHIdentityPath.GetPath() + ".pub")
 	if err != nil {
@@ -132,11 +154,35 @@ func (ign *DynamicIgnitionV3) CopySSHIdPub() error {
 	return nil
 }
 
-func (ign *DynamicIgnitionV3) UpdateTimeZone() {
-	location := time.Now().Location()
-	
+func (ign *DynamicIgnitionV3) UpdateTimeZone() error {
+	tz, err := getLocalTimeZone()
+	if err != nil {
+		return fmt.Errorf("failed to get local timezone: %w", err)
+	}
+	data := struct {
+		TimeZone string
+	}{
+		TimeZone: tz,
+	}
+
+	mybuff := new(bytes.Buffer)
+	t := template.Must(template.New("UpdateTimeZoneScriptCodes").Parse(UpdateTimeZoneScript))
+	if err := t.Execute(mybuff, data); err != nil {
+		return fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	ign.CodeBuffer.Write(mybuff.Bytes())
+	return nil
 }
 
 func NewIgnitionBuilder(dynamicIgnition *DynamicIgnitionV3) *DynamicIgnitionV3 {
 	return dynamicIgnition
+}
+
+func getLocalTimeZone() (string, error) {
+	tzPath, err := os.Readlink("/etc/localtime")
+	if err != nil {
+		return "", fmt.Errorf("failed to read link: %w", err)
+	}
+	return strings.TrimPrefix(tzPath, "/var/db/timezone/zoneinfo/"), nil
 }
