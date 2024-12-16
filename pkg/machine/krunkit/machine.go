@@ -18,9 +18,7 @@ import (
 	"bauklotze/pkg/machine/sockets"
 	"bauklotze/pkg/machine/vmconfigs"
 	mypty "bauklotze/pkg/pty"
-	"bauklotze/pkg/system"
 
-	"github.com/containers/storage/pkg/fileutils"
 	vfConfig "github.com/crc-org/vfkit/pkg/config"
 	"github.com/crc-org/vfkit/pkg/rest"
 	"github.com/sirupsen/logrus"
@@ -38,16 +36,23 @@ func GetDefaultDevices(mc *vmconfigs.MachineConfig) ([]vfConfig.VirtioDevice, er
 		return nil, fmt.Errorf("failed to create rng device: %w", err)
 	}
 
-	logfile, err := mc.LogFile()
+	//logfile, err := mc.LogFile()
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to get log file: %w", err)
+	//}
+	//serial, err := vfConfig.VirtioSerialNew(logfile.GetPath())
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to create serial device: %w", err)
+	//}
+
+	externalDisk, err := vfConfig.VirtioBlkNew(mc.DataDisk.GetPath())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get log file: %w", err)
+		return nil, fmt.Errorf("failed to create externalDisk device: %w", err)
 	}
-	serial, err := vfConfig.VirtioSerialNew(logfile.GetPath())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create serial device: %w", err)
-	}
-	devices = append(devices, serial)
+
 	devices = append(devices, disk, rng)
+	// MUST APPEND AFTER disk PLEASE DO NOT CHANGE THE ORDER PLZ PLZ PLZ
+	devices = append(devices, externalDisk)
 
 	return devices, nil
 }
@@ -104,21 +109,6 @@ func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootload
 	}
 	vm.Devices = append(vm.Devices, defaultDevices...)
 	vm.Devices = append(vm.Devices, netDevice)
-
-	if mc.DataDisk.GetPath() != "" {
-		if err = fileutils.Exists(mc.DataDisk.GetPath()); err != nil {
-			logrus.Warnf("external disk does not exist: %s", mc.DataDisk.GetPath())
-			if err = system.CreateAndResizeDisk(mc.DataDisk.GetPath(), 100); err != nil { //nolint:mnd
-				return nil, nil, fmt.Errorf("failed to create and resize disk: %w", err)
-			}
-		}
-
-		externalDisk, err := vfConfig.VirtioBlkNew(mc.DataDisk.GetPath())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create external disk: %w", err)
-		}
-		vm.Devices = append(vm.Devices, externalDisk)
-	}
 
 	mounts, err := VirtIOFsToVFKitVirtIODevice(mc.Mounts)
 	if err != nil {
