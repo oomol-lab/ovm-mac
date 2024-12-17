@@ -8,6 +8,7 @@ package krunkit
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 
@@ -35,15 +36,6 @@ func GetDefaultDevices(mc *vmconfigs.MachineConfig) ([]vfConfig.VirtioDevice, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rng device: %w", err)
 	}
-
-	//logfile, err := mc.LogFile()
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to get log file: %w", err)
-	//}
-	//serial, err := vfConfig.VirtioSerialNew(logfile.GetPath())
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to create serial device: %w", err)
-	//}
 
 	externalDisk, err := vfConfig.VirtioBlkNew(mc.DataDisk.GetPath())
 	if err != nil {
@@ -131,9 +123,6 @@ func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootload
 		return nil, nil, fmt.Errorf("failed to create krunkit command: %w", err)
 	}
 
-	krunCmd.Stdout = os.Stdout
-	krunCmd.Stderr = os.Stderr
-
 	// endpoint is krunkit rest api endpoint
 	endpointArgs, err := GetVfKitEndpointCMDArgs(endpoint)
 	if err != nil {
@@ -152,10 +141,13 @@ func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootload
 
 	logrus.Infof("krunkit command-line: %v", krunCmd.Args)
 	// Run krunkit in pty, the pty should never close because the krunkit is a background process
-	_, err = mypty.RunInPty(krunCmd)
+	ptmx, err := mypty.RunInPty(krunCmd)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to run krunkit in pty: %w", err)
 	}
+	go func() {
+		_, _ = io.Copy(os.Stdout, ptmx)
+	}()
 	machine.GlobalCmds.SetKrunCmd(krunCmd)
 
 	mc.AppleKrunkitHypervisor.Krunkit.BinaryPath, _ = define.NewMachineFile(cmdBinaryPath, nil)
