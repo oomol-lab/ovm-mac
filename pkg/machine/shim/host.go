@@ -87,7 +87,7 @@ func Init(opts define.InitOptions, mp vmconfigs.VMProvider) error {
 	}
 
 	switch mp.VMType() {
-	case define.LibKrun:
+	case define.LibKrun, define.VFkit:
 		imageExtension = ".raw"
 	case define.WSLVirt:
 		imageExtension = ""
