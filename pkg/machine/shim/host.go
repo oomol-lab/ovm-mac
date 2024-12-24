@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"time"
 
 	"bauklotze/pkg/machine"
 	"bauklotze/pkg/machine/connection"
@@ -292,5 +293,6 @@ func Start(ctx context.Context, mc *vmconfigs.MachineConfig, mp vmconfigs.VMProv
 			_ = gvproxyPidFile.Delete()
 			return fmt.Errorf("failed to start krunkit: %w", err)
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
