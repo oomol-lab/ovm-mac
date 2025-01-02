@@ -54,7 +54,7 @@ func WaitAPIAndPrintInfo(sockInHost string, forwardState APIForwardingState, nam
 }
 
 const defaultPingTimeout = 5 * time.Second
-const defaultPingInterval = 100 * time.Microsecond
+const defaultPingInterval = 200 * time.Millisecond
 
 func WaitAndPingAPI(sock string) error {
 	client := httpclient.New().SetTransport(httpclient.CreateUnixTransport(sock))

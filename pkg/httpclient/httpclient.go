@@ -28,8 +28,10 @@ type Client struct {
 
 func New() *Client {
 	return &Client{
-		baseURL: "http://localhost",
-		ctx:     context.Background(),
+		baseURL:    "http://localhost",
+		ctx:        context.Background(),
+		Headers:    make(http.Header),
+		QueryParam: make(url.Values),
 		client: &http.Client{
 			Timeout: defaultTimeout,
 		},
@@ -76,7 +78,7 @@ func (c *Client) SetContext(ctx context.Context) {
 
 func (c *Client) Get(path string) error {
 	uri := fmt.Sprintf("%s/%s", c.baseURL, strings.TrimLeft(path, "/"))
-	req, err := http.NewRequestWithContext(c.ctx, "GET", uri, c.Body)
+	req, err := http.NewRequestWithContext(c.ctx, http.MethodGet, uri, c.Body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -95,9 +97,10 @@ func (c *Client) Get(path string) error {
 }
 
 func CreateUnixTransport(path string) *http.Transport {
+	u, _ := url.Parse(path)
 	return &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "unix", path)
+			return (&net.Dialer{}).DialContext(ctx, "unix", u.Path)
 		},
 		DisableCompression: true,
 	}
