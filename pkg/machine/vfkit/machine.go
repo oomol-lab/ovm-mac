@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"bauklotze/pkg/libexec"
 	"bauklotze/pkg/machine/events"
@@ -64,6 +65,8 @@ func GetVfKitEndpointCMDArgs(endpoint string) ([]string, error) {
 	}
 	return restEndpoint.ToCmdLine() //nolint:wrapcheck
 }
+
+const sleepTime = 700 * time.Millisecond
 
 func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootloader vfConfig.Bootloader, endpoint string) (*exec.Cmd, func() error, error) {
 	const applehvMACAddress = "5a:94:ef:e4:0c:ee"
@@ -136,6 +139,7 @@ func StartGenericAppleVM(mc *vmconfigs.MachineConfig, cmdBinary string, bootload
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to run krunkit in pty: %w", err)
 	}
+	time.Sleep(sleepTime)
 	events.NotifyRun(events.StartVMProvider, "vfkit start finished")
 
 	go func() {
