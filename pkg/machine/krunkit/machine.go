@@ -6,12 +6,15 @@
 package krunkit
 
 import (
-	"bauklotze/pkg/machine/events"
-	"bauklotze/pkg/machine/helper"
-	"bauklotze/pkg/machine/vmconfig"
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+
+	"bauklotze/pkg/machine/events"
+	"bauklotze/pkg/machine/helper"
+	"bauklotze/pkg/machine/vmconfig"
 
 	"bauklotze/pkg/machine/ignition"
 	mypty "bauklotze/pkg/pty"
@@ -64,7 +67,35 @@ func setupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 	return devices, nil
 }
 
-func startKrunkit(mc *vmconfig.MachineConfig) error {
+// Taken from vfConfig.VirtualMachine
+func createCmd(ctx context.Context, vfkitPath string, vm *vfConfig.VirtualMachine) (*exec.Cmd, error) {
+	args, err := vm.ToCmdLine()
+	if err != nil {
+		return nil, fmt.Errorf("createCmd err:%w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, vfkitPath, args...)
+	cmd.ExtraFiles = extraFiles(vm)
+
+	return cmd, nil
+}
+
+// Taken from vfConfig.VirtualMachine
+func extraFiles(vm *vfConfig.VirtualMachine) []*os.File {
+	extraFiles := []*os.File{}
+	for _, dev := range vm.Devices {
+		virtioNet, ok := dev.(*vfConfig.VirtioNet)
+		if !ok {
+			continue
+		}
+		if virtioNet.Socket != nil {
+			extraFiles = append(extraFiles, virtioNet.Socket)
+		}
+	}
+	return extraFiles
+}
+
+func startKrunkit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	bootloader := mc.AppleKrunkitHypervisor.Krunkit.VirtualMachine.Bootloader
 	if bootloader == nil {
 		return fmt.Errorf("unable to determine boot loader for this machine")
@@ -81,7 +112,7 @@ func startKrunkit(mc *vmconfig.MachineConfig) error {
 	krunkitBin := mc.Dirs.Hypervisor.Bin.GetPath()
 	logrus.Infof("krunkit binary path is: %s", krunkitBin)
 
-	krunkitCmd, err := vmc.Cmd(krunkitBin)
+	krunkitCmd, err := createCmd(ctx, krunkitBin, vmc)
 	if err != nil {
 		return fmt.Errorf("failed to create krunkit command: %w", err)
 	}

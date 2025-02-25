@@ -75,8 +75,10 @@ func (c *Cmd) String() string {
 // RunCtx executes the given callback within session. Sends SIGINT when the context is canceled.
 func (c *Cmd) RunCtx() error {
 	context.AfterFunc(c.context, func() {
-		_ = c.mySession.Signal(c.signal)
-		logrus.Warnf("send signal [ %s ] to [ %q ], cause by %v", c.signal, c.name, context.Cause(c.context))
+		if c.mySession != nil {
+			_ = c.mySession.Signal(c.signal)
+			logrus.Warnf("send signal [ %s ] to [ %q ], cause by %v", c.signal, c.name, context.Cause(c.context))
+		}
 	})
 
 	client, err := c.newClient()

@@ -147,7 +147,7 @@ func getMCsOverProviders(stubs []vmconfig.VMProvider) (map[string]*vmconfig.Mach
 	return mcs, nil
 }
 
-func startNetworkProvider(mc *vmconfig.MachineConfig) error {
+func startNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	// p is the port maybe changed different from the default port which 6123
 	p, err := port.GetFree(mc.SSH.Port)
 	if err != nil {
@@ -155,7 +155,7 @@ func startNetworkProvider(mc *vmconfig.MachineConfig) error {
 	}
 	// set the port to the machine configure
 	mc.SSH.Port = p
-	podmanAPISocksInHost, podmanAPISocksInGuest, err := startNetworking(mc)
+	podmanAPISocksInHost, podmanAPISocksInGuest, err := startNetworking(ctx, mc)
 	if err != nil {
 		return fmt.Errorf("failed to start network provider: %w", err)
 	}
@@ -173,11 +173,11 @@ func tryKillHyperVisorBeforeRun(mc *vmconfig.MachineConfig) {
 	}
 }
 
-func startVMProvider(mc *vmconfig.MachineConfig) error {
+func startVMProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	tryKillHyperVisorBeforeRun(mc)
 	provider := mc.VMProvider
 	logrus.Infof("Start VM provider: %s", provider.VMType())
-	return provider.StartVM(mc) //nolint:wrapcheck
+	return provider.StartVM(ctx, mc) //nolint:wrapcheck
 }
 
 // Start the machine It will start network provider and hypervisor:
@@ -189,13 +189,13 @@ func startVMProvider(mc *vmconfig.MachineConfig) error {
 // Note: this function is a non-block function, it will return immediately after start the network provider and hypervisor
 func Start(ctx context.Context, mc *vmconfig.MachineConfig) (context.Context, error) {
 	// First start network provider which provided by gvproxy
-	err := startNetworkProvider(mc)
+	err := startNetworkProvider(ctx, mc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start network provider: %w", err)
 	}
 
 	// Start HyperVisor which provided by krunkit(arm64)/vfkit(x86_64)
-	err = startVMProvider(mc)
+	err = startVMProvider(ctx, mc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start vm provider: %w", err)
 	}

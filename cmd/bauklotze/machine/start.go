@@ -132,7 +132,7 @@ func start(cmd *cobra.Command, args []string) error {
 		logrus.Infof("Starting machine %q", mc.VMName)
 		// Start the network and hypervisor, shim.Start is non-block func
 		_, err = shim.Start(ctx, mc)
-		defer cleanUp(mc) // Clean tmp files at the end
+
 		if err != nil {
 			return fmt.Errorf("failed to start machine: %w", err)
 		}
@@ -162,40 +162,46 @@ func start(cmd *cobra.Command, args []string) error {
 		}
 
 		logrus.Infof("Machine start successful, wait the network provider and hypervisor to exit")
-		gvpErrChan := make(chan error, 1)
+
+		errChanGvp := make(chan error, 1) //nolint:gomnd
 		go func() {
 			if mc.GvpCmd != nil {
 				logrus.Infof("Waiting for gvisor network provider to exit")
-				gvpErrChan <- mc.GvpCmd.Wait()
+				errChanGvp <- mc.GvpCmd.Wait()
 			}
 		}()
 
-		vmmErrChan := make(chan error, 1)
+		errChanVmm := make(chan error, 1) //nolint:gomnd
 		go func() {
 			if mc.VmmCmd != nil {
 				logrus.Infof("Waiting for hypervisor to exit")
-				vmmErrChan <- mc.VmmCmd.Wait()
+				errChanVmm <- mc.VmmCmd.Wait()
 			}
 		}()
 
 		select {
 		case <-ctx.Done():
-			return context.Cause(ctx) //nolint:wrapcheck
-		case err = <-gvpErrChan:
-			return fmt.Errorf("gvproxy exited with error: %w", err)
-		case err = <-vmmErrChan:
-			return fmt.Errorf("hypervisor exited with error: %w", err)
+			return fmt.Errorf("context done: %w", context.Cause(ctx))
+		case err = <-errChanGvp:
+			return fmt.Errorf("network provider exit: %w", err)
+		case err = <-errChanVmm:
+			return fmt.Errorf("hypervisor exit: %w", err)
 		}
 	})
 
-	return g.Wait() //nolint:wrapcheck
+	defer cleanUp(mc) // Clean tmp files at the end
+	return g.Wait()   //nolint:wrapcheck
 }
 
 // cleanUp deletes the temporary socks file and terminates the child process using
 // cmd.Process.Kill()
 func cleanUp(mc *vmconfig.MachineConfig) {
 	events.NotifyRun(events.SyncMachineDisk)
-	SyncDisk(mc) // Sync the disk to make sure all data is written to the disk
+	// SyncDisk(mc) // Sync the disk to make sure all data is written to the disk
+
+	// logrus.Infof("Start clean up process")
+	// system.KillCmdWithWarn(mc.VmmCmd, mc.GvpCmd)
+
 	logrus.Infof("Start clean up files")
 	gvpBackendSocket, _ := mc.GVProxyNetworkBackendSocks()
 	_ = gvpBackendSocket.Delete(true)
@@ -208,9 +214,6 @@ func cleanUp(mc *vmconfig.MachineConfig) {
 
 	gvpPidFile := &io.VMFile{Path: mc.GvProxy.PidFile}
 	_ = gvpPidFile.Delete(true)
-
-	logrus.Infof("Start clean up process")
-	system.KillCmdWithWarn(mc.VmmCmd, mc.GvpCmd)
 }
 
 func SyncDisk(mc *vmconfig.MachineConfig) {

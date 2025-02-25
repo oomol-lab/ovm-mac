@@ -6,14 +6,16 @@
 package krunkit
 
 import (
+	"context"
+	"fmt"
+	"strconv"
+
 	"bauklotze/pkg/decompress"
 	"bauklotze/pkg/machine/defconfig"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/machine/volumes"
 	"bauklotze/pkg/port"
-	"fmt"
-	"strconv"
 
 	gvproxy "github.com/containers/gvisor-tap-vsock/pkg/types"
 	vfConfig "github.com/crc-org/vfkit/pkg/config"
@@ -72,6 +74,6 @@ func (l LibKrunStubber) VMType() defconfig.VMType {
 	return defconfig.LibKrun
 }
 
-func (l LibKrunStubber) StartVM(mc *vmconfig.MachineConfig) error {
-	return startKrunkit(mc)
+func (l LibKrunStubber) StartVM(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	return startKrunkit(ctx, mc)
 }
