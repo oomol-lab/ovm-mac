@@ -122,7 +122,10 @@ func (c *Cmd) RunCtx() error {
 	if err = c.mySession.Start(c.String()); err != nil {
 		return fmt.Errorf("failed to start ssh command:%w", err)
 	}
-	defer c.mySession.Close()
+	defer func() {
+		_ = c.mySession.Close()
+		c.mySession = nil
+	}()
 
 	go logStdOut(outPipe)
 	go logStdErr(errPipe)

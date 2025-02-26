@@ -136,7 +136,14 @@ func start(cmd *cobra.Command, args []string) error {
 	return g.Wait()   //nolint:wrapcheck
 }
 
-func startMachine(ctx context.Context, mc *vmconfig.MachineConfig) error {
+func startMachine(parentCtx context.Context, mc *vmconfig.MachineConfig) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	context.AfterFunc(parentCtx, func() {
+		SyncDisk(mc)
+		cancel()
+	})
+
 	logrus.Infof("Starting machine %q", mc.VMName)
 	// Start the network and hypervisor, shim.Start is non-block func
 	_, err := shim.Start(ctx, mc)
@@ -201,10 +208,6 @@ func startMachine(ctx context.Context, mc *vmconfig.MachineConfig) error {
 // cmd.Process.Kill()
 func cleanUp(mc *vmconfig.MachineConfig) {
 	events.NotifyRun(events.SyncMachineDisk)
-	// SyncDisk(mc) // Sync the disk to make sure all data is written to the disk
-
-	// logrus.Infof("Start clean up process")
-	// system.KillCmdWithWarn(mc.VmmCmd, mc.GvpCmd)
 
 	logrus.Infof("Start clean up files")
 	gvpBackendSocket, _ := mc.GVProxyNetworkBackendSocks()
@@ -220,9 +223,9 @@ func cleanUp(mc *vmconfig.MachineConfig) {
 	_ = gvpPidFile.Delete(true)
 }
 
-//func SyncDisk(mc *vmconfig.MachineConfig) {
-//	if err := shim.DiskSync(mc); err != nil {
-//		logrus.Warnf("Failed to sync disk: %v", err)
-//		return
-//	}
-//}
+func SyncDisk(mc *vmconfig.MachineConfig) {
+	if err := shim.DiskSync(mc); err != nil {
+		logrus.Warnf("Failed to sync disk: %v", err)
+		return
+	}
+}
