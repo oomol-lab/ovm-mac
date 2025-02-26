@@ -153,12 +153,11 @@ func startMachine(parentCtx context.Context, mc *vmconfig.MachineConfig) error {
 	}
 
 	// Test the machine ssh connection by consume a string with '\n'
-	if shim.ConductVMReadinessCheck(ctx, mc) {
-		logrus.Infof("Machine %s SSH is ready, using sshkey %s with %s, listen in %d",
-			mc.VMName, mc.SSH.IdentityPath, mc.SSH.RemoteUsername, mc.SSH.Port)
-	} else {
+	if !shim.ConductVMReadinessCheck(ctx, mc) {
 		return fmt.Errorf("machine ssh is not ready")
 	}
+	logrus.Infof("Machine %s SSH is ready, using sshkey %s with %s, listen in %d",
+		mc.VMName, mc.SSH.IdentityPath, mc.SSH.RemoteUsername, mc.SSH.Port)
 
 	// Test the podman api which forwarded from host to guest
 	err = machine.WaitPodmanReady(ctx, mc.GvProxy.ForwardInfo["forward-sock"][0])
@@ -173,35 +172,12 @@ func startMachine(parentCtx context.Context, mc *vmconfig.MachineConfig) error {
 	go shim.SleepNotifier(ctx, mc)
 
 	if err = mc.UpdateLastBoot(); err != nil {
-		logrus.Errorf("failed to update last boot time: %v", err)
+		logrus.Warnf("failed to update last boot time: %v", err)
 	}
 
-	logrus.Infof("Machine start successful, wait the network provider and hypervisor to exit")
+	logrus.Infof("Machine start successful")
 
-	errChanGvp := make(chan error, 1) //nolint:gomnd
-	go func() {
-		if mc.GvpCmd != nil {
-			logrus.Infof("Waiting for gvisor network provider to exit")
-			errChanGvp <- mc.GvpCmd.Wait()
-		}
-	}()
-
-	errChanVmm := make(chan error, 1) //nolint:gomnd
-	go func() {
-		if mc.VmmCmd != nil {
-			logrus.Infof("Waiting for hypervisor to exit")
-			errChanVmm <- mc.VmmCmd.Wait()
-		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("context done: %w", context.Cause(ctx))
-	case err = <-errChanGvp:
-		return fmt.Errorf("network provider exit: %w", err)
-	case err = <-errChanVmm:
-		return fmt.Errorf("hypervisor exit: %w", err)
-	}
+	return shim.Wait(ctx, mc) //nolint:wrapcheck
 }
 
 // cleanUp deletes the temporary socks file and terminates the child process using

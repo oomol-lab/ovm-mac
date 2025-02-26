@@ -147,6 +147,37 @@ func getMCsOverProviders(stubs []vmconfig.VMProvider) (map[string]*vmconfig.Mach
 	return mcs, nil
 }
 
+func Wait(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	errChanGvp := make(chan error, 1) //nolint:gomnd
+	go func() {
+		if mc.GvpCmd != nil {
+			logrus.Infoln("Waiting for gvisor network provider to exit")
+			errChanGvp <- mc.GvpCmd.Wait()
+		} else {
+			logrus.Warnf("GvpCmd is nil, gvp network provider is not started")
+		}
+	}()
+
+	errChanVmm := make(chan error, 1) //nolint:gomnd
+	go func() {
+		if mc.VmmCmd != nil {
+			logrus.Infoln("Waiting for hypervisor to exit")
+			errChanVmm <- mc.VmmCmd.Wait()
+		} else {
+			logrus.Warnf("VmmCmd is nil, hypervisor is not started")
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context done: %w", context.Cause(ctx))
+	case err := <-errChanGvp:
+		return fmt.Errorf("network provider exit: %w", err)
+	case err := <-errChanVmm:
+		return fmt.Errorf("hypervisor exit: %w", err)
+	}
+}
+
 func startNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	// p is the port maybe changed different from the default port which 6123
 	p, err := port.GetFree(mc.SSH.Port)

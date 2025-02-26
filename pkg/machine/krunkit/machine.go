@@ -6,21 +6,12 @@
 package krunkit
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
 
-	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/helper"
 	"bauklotze/pkg/machine/vmconfig"
 
-	"bauklotze/pkg/machine/ignition"
-	mypty "bauklotze/pkg/pty"
-
 	vfConfig "github.com/crc-org/vfkit/pkg/config"
-	"github.com/sirupsen/logrus"
 )
 
 const applehvMACAddress = "5a:94:ef:e4:0c:ee"
@@ -65,58 +56,4 @@ func setupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 	devices = append(devices, VirtIOMounts...)
 
 	return devices, nil
-}
-
-func startKrunkit(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	bootloader := mc.AppleKrunkitHypervisor.Krunkit.VirtualMachine.Bootloader
-	if bootloader == nil {
-		return fmt.Errorf("unable to determine boot loader for this machine")
-	}
-
-	vmc := vfConfig.NewVirtualMachine(uint(mc.Resources.CPUs), uint64(mc.Resources.Memory), bootloader)
-
-	defaultDevices, err := setupDevices(mc)
-	if err != nil {
-		return fmt.Errorf("failed to get default devices: %w", err)
-	}
-	vmc.Devices = append(vmc.Devices, defaultDevices...)
-
-	krunkitBin := mc.Dirs.Hypervisor.Bin.GetPath()
-	logrus.Infof("krunkit binary path is: %s", krunkitBin)
-
-	cmd, err := vmc.Cmd(krunkitBin)
-	if err != nil {
-		return fmt.Errorf("failed to create krunkit command: %w", err)
-	}
-	libsDir := mc.Dirs.Hypervisor.LibsDir.GetPath()
-
-	// Add the "krun-log-level" allflag for setting up the desired log level for libkrun's debug facilities.
-	// Log level for libkrun (0=off, 1=error, 2=warn, 3=info, 4=debug, 5 or higher=trace)
-	cmd.Args = append(cmd.Args, "--krun-log-level", "3")
-
-	myKrunKitCmd := exec.CommandContext(ctx, krunkitBin, cmd.Args[1:]...)
-	myKrunKitCmd.Env = append(myKrunKitCmd.Env, fmt.Sprintf("DYLD_LIBRARY_PATH=%s", libsDir))
-
-	err = ignition.GenerateIgnScripts(mc)
-	if err != nil {
-		return fmt.Errorf("failed to generate ignition scripts: %w", err)
-	}
-
-	logrus.Infof("FULL KRUNKIT CMDLINE:%q", myKrunKitCmd.Args)
-	events.NotifyRun(events.StartVMProvider, "krunkit staring...")
-
-	// Run krunkit in pty, the pty should never close because the krunkit is a background process
-	ptmx, err := mypty.RunInPty(myKrunKitCmd)
-	if err != nil {
-		return fmt.Errorf("failed to run krunkit in pty: %w", err)
-	}
-	mc.VmmCmd = myKrunKitCmd
-
-	go func() {
-		_, _ = io.Copy(os.Stdout, ptmx)
-	}()
-
-	events.NotifyRun(events.StartVMProvider, "krunkit started")
-
-	return nil
 }

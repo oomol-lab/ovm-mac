@@ -78,6 +78,8 @@ func (c *Cmd) RunCtx() error {
 		if c.mySession != nil {
 			_ = c.mySession.Signal(c.signal)
 			logrus.Warnf("send signal [ %s ] to [ %q ], cause by %v", c.signal, c.name, context.Cause(c.context))
+		} else {
+			logrus.Infof("ssh [ %q ] session is nil, no signal sent", c.name)
 		}
 	})
 

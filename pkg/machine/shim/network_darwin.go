@@ -99,6 +99,7 @@ func startForwarder(ctx context.Context, mc *vmconfig.MachineConfig, socksOnHost
 	mc.GvProxy.PidFile = gvproxyCommand.PidFile
 	mc.GvProxy.SSHPort = gvproxyCommand.SSHPort
 	mc.GvProxy.MTU = gvproxyCommand.MTU
+	mc.GvpCmd = gvpExecCmd
 
 	socks, _ := mc.GVProxyNetworkBackendSocks()
 
@@ -122,7 +123,7 @@ func waitForSocket(ctx context.Context, socketPath string) error {
 	for range 100 {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("cancel waitForSocket,ctx cancelled:%w", context.Cause(ctx))
+			return fmt.Errorf("cancel waitForSocket,ctx cancelled: %w", context.Cause(ctx))
 		default:
 			if err := fileutils.Exists(socketPath); err != nil {
 				logrus.Warnf("Gvproxy network backend socket not ready, try test %s again....", socketPath)
