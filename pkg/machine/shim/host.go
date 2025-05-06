@@ -28,9 +28,9 @@ func Init(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 
 	switch opts.VMType {
 	case vmconfig.LibKrun:
-		vmp = new(krunkit.Stubber)
+		vmp = krunkit.NewProvider()
 	case vmconfig.VFkit:
-		vmp = new(vfkit.Stubber)
+		vmp = vfkit.NewProvider()
 	default:
 		return nil, fmt.Errorf("invalid VM type: %s", opts.VMType.String())
 	}

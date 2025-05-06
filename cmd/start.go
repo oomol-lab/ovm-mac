@@ -58,11 +58,23 @@ var startCmd = cli.Command{
 
 const tickerInterval = 300 * time.Millisecond
 
-func start(parentCtx context.Context, command *cli.Command) error {
+func start(parentCtx context.Context, cli *cli.Command) error {
 	opts := &vmconfig.VMOpts{
-		VMName:    command.String("name"),
-		PPID:      command.Int("ppid"),
-		Workspace: command.String("workspace"),
+		VMName:    cli.String("name"),
+		PPID:      cli.Int("ppid"),
+		Workspace: cli.String("workspace"),
+	}
+
+	if cli.String("log-out") == "file" {
+		if fd, err := os.OpenFile(filepath.Join(opts.Workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm); err == nil {
+			os.Stdout = fd
+			os.Stderr = fd
+			logrus.SetOutput(fd)
+		} else {
+			logrus.Warnf("unable to open file for standard output: %v", err)
+			logrus.Warnf("falling back to standard output")
+			logrus.SetOutput(os.Stderr)
+		}
 	}
 
 	workspace.SetWorkspace(opts.Workspace)
@@ -124,7 +136,7 @@ func startMachine(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineCo
 
 func StartRestAPI(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineConfig) {
 	g.Go(func() error {
-		endPoint := filepath.Join(filepath.Dir(mc.Dirs.SocksDir), define.RESTAPIEndpointName)
+		endPoint := mc.RestAPISocks
 		logrus.Infof("Start rest api service at %q", endPoint)
 		return server.RestService(ctx, mc, endPoint)
 	})

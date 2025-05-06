@@ -13,8 +13,19 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+func init() {
+	loggingHook()
+}
+
 func main() {
 	app := cli.Command{
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "log-out",
+				Usage: "where to write the log, support file, stdout, default is file( in workspace log dir )",
+				Value: "file",
+			},
+		},
 		Commands: []*cli.Command{
 			&initCmd,
 			&startCmd,
@@ -33,4 +44,15 @@ func NotifyAndExit(err error) {
 	}
 	events.NotifyExit()
 	logrus.Exit(retCode)
+}
+
+func loggingHook() {
+	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp:   true,
+		ForceColors:     true,
+		DisableColors:   false,
+		TimestampFormat: "2006-01-02 15:04:05.000",
+	})
+	logrus.SetOutput(os.Stderr)
 }

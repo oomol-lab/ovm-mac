@@ -15,6 +15,7 @@ import (
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/machine/workspace"
 
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -90,17 +91,28 @@ var initCmd = cli.Command{
 	},
 }
 
-func initMachine(ctx context.Context, command *cli.Command) error {
+func initMachine(ctx context.Context, cli *cli.Command) error {
 	opts := &vmconfig.VMOpts{
-		VMName:      command.String("name"),
-		Workspace:   command.String("workspace"),
-		PPID:        command.Int("ppid"),
-		CPUs:        command.Int("cpus"),
-		MemoryInMiB: command.Int("memory"),
-		Volumes:     command.StringSlice("volume"),
-		BootImage:   command.String("boot"),
-		BootVersion: command.String("boot-version"),
-		DataVersion: command.String("data-version"),
+		VMName:      cli.String("name"),
+		Workspace:   cli.String("workspace"),
+		PPID:        cli.Int("ppid"),
+		CPUs:        cli.Int("cpus"),
+		MemoryInMiB: cli.Int("memory"),
+		Volumes:     cli.StringSlice("volume"),
+		BootImage:   cli.String("boot"),
+		BootVersion: cli.String("boot-version"),
+		DataVersion: cli.String("data-version"),
+	}
+
+	if cli.String("log-out") == "file" {
+		if fd, err := os.OpenFile(filepath.Join(opts.Workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm); err == nil {
+			os.Stdout = fd
+			logrus.SetOutput(fd)
+		} else {
+			logrus.Warnf("unable to open file for standard output: %v", err)
+			logrus.Warnf("falling back to standard output")
+			logrus.SetOutput(os.Stderr)
+		}
 	}
 
 	// add a default mount point that store generated ignition scripts
