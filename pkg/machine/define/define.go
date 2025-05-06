@@ -45,6 +45,9 @@ const (
 
 	IgnMnt               = "/tmp/initfs:/tmp/initfs"
 	SSHAuthLocalSockName = "oo-ssh-agent-host.sock"
+
+	LogOutFile     = "file"
+	LogOutTerminal = "terminal"
 )
 
 var (

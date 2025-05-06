@@ -29,29 +29,12 @@ import (
 )
 
 var startCmd = cli.Command{
-	Name:  "start",
-	Usage: "Start a virtual machine",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "workspace",
-			Usage:    "workspace directory",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "name",
-			Usage:    "machine name",
-			Required: true,
-		},
-		&cli.IntFlag{
-			Name:     "ppid",
-			Usage:    "process parent pid file",
-			Required: false,
-			Value:    1,
-		},
-	},
+	Name:   "start",
+	Usage:  "Start a virtual machine",
 	Action: start,
-	Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
+	Before: func(ctx context.Context, cli *cli.Command) (context.Context, error) {
 		events.CurrentStage = events.Run
+		loggingHook(cli.String("log-out"), cli.String("workspace"))
 		return ctx, nil
 	},
 }
@@ -63,18 +46,6 @@ func start(parentCtx context.Context, cli *cli.Command) error {
 		VMName:    cli.String("name"),
 		PPID:      cli.Int("ppid"),
 		Workspace: cli.String("workspace"),
-	}
-
-	if cli.String("log-out") == "file" {
-		if fd, err := os.OpenFile(filepath.Join(opts.Workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm); err == nil {
-			os.Stdout = fd
-			os.Stderr = fd
-			logrus.SetOutput(fd)
-		} else {
-			logrus.Warnf("unable to open file for standard output: %v", err)
-			logrus.Warnf("falling back to standard output")
-			logrus.SetOutput(os.Stderr)
-		}
 	}
 
 	workspace.SetWorkspace(opts.Workspace)

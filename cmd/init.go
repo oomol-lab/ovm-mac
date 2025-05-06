@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"bauklotze/pkg/machine/define"
@@ -15,7 +14,6 @@ import (
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/machine/workspace"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -26,26 +24,11 @@ var initCmd = cli.Command{
 	Action:                    initMachine,
 	Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
 		events.CurrentStage = events.Init
+		loggingHook(command.String("log-out"), command.String("workspace"))
 		return ctx, nil
 	},
 
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:     "workspace",
-			Usage:    "Path to the workspace directory",
-			Required: true,
-		},
-		&cli.StringFlag{
-			Name:     "name",
-			Usage:    "Name of the virtual machine",
-			Value:    "default",
-			Required: true,
-		},
-		&cli.IntFlag{
-			Name:  "ppid",
-			Usage: "Parent process id, if not given, the ppid is the current process's ppid",
-			Value: int64(os.Getpid()),
-		},
 		&cli.IntFlag{
 			Name:  "cpus",
 			Usage: "Number of CPUs to allocate to the VM",
@@ -102,17 +85,6 @@ func initMachine(ctx context.Context, cli *cli.Command) error {
 		BootImage:   cli.String("boot"),
 		BootVersion: cli.String("boot-version"),
 		DataVersion: cli.String("data-version"),
-	}
-
-	if cli.String("log-out") == "file" {
-		if fd, err := os.OpenFile(filepath.Join(opts.Workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm); err == nil {
-			os.Stdout = fd
-			logrus.SetOutput(fd)
-		} else {
-			logrus.Warnf("unable to open file for standard output: %v", err)
-			logrus.Warnf("falling back to standard output")
-			logrus.SetOutput(os.Stderr)
-		}
 	}
 
 	// add a default mount point that store generated ignition scripts
