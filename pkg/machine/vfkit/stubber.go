@@ -48,7 +48,7 @@ func (l *Stubber) VMType() vmconfig.VMType {
 }
 
 func (l *Stubber) StartNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	return network.StartGvproxy(ctx, mc)
+	return network.StartGvproxy(ctx, mc) //nolint:wrapcheck
 }
 
 func (l *Stubber) StartVMProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {

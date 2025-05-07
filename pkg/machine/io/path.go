@@ -79,13 +79,14 @@ func (m *PathWrapper) IsExist() bool {
 	return true
 }
 
-// DiscardBytesAtBegin discards the first n MB of a file
+// DiscardBytesAtBegin discards the first 5 MB of a file if file bigger n Mib
 func (m *PathWrapper) DiscardBytesAtBegin(n strongunits.MiB) error {
 	fileInfo, err := os.Stat(m.path)
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
 	offset := int64(n.ToBytes())
+	logrus.Infof("fileInfo.Size: %d, expact size: %d", fileInfo.Size(), n.ToBytes())
 	if fileInfo.Size() <= offset {
 		return nil
 	} else {

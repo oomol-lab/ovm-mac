@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	mylog "bauklotze/pkg/log"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/shim"
@@ -24,7 +25,7 @@ var initCmd = cli.Command{
 	Action:                    initMachine,
 	Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
 		events.CurrentStage = events.Init
-		loggingHook(command.String("log-out"), command.String("workspace"))
+		mylog.Setup(command.String("log-out"), command.String("workspace"))
 		return ctx, nil
 	},
 

@@ -3,8 +3,6 @@
 
 package events
 
-// CurrentStage Stage is the stage of the lifecycle
-
 const (
 	Init string = "init"
 	Run  string = "run"

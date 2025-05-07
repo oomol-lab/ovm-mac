@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
@@ -57,28 +56,4 @@ func NotifyAndExit(err error) {
 	}
 	events.NotifyExit()
 	logrus.Exit(retCode)
-}
-
-// outType: file, stdout
-// if outType is file, workspace is required
-// if outType is terminal, workspace is not required, all output will be sent to Terminal's stdout/stderr
-func loggingHook(outType string, workspace string) {
-	logrus.SetLevel(logrus.InfoLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp:   true,
-		ForceColors:     true,
-		DisableColors:   false,
-		TimestampFormat: "2006-01-02 15:04:05.000",
-	})
-
-	logrus.SetOutput(os.Stderr)
-
-	if outType == define.LogOutFile {
-		logrus.Infof("Save log to %q", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
-		if fd, err := os.OpenFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm); err == nil {
-			os.Stdout = fd
-			os.Stderr = fd
-			logrus.SetOutput(fd)
-		}
-	}
 }

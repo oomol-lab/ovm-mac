@@ -45,7 +45,7 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 	mc.Mounts = volumes.CmdLineVolumesToMounts(opts.Volumes)
 
 	if mc.Bootable.Version != opts.BootVersion {
-		logrus.Warnf("Bootable image version is not match, try to update boot image")
+		logrus.Infof("Bootable image version is not match, try to update boot image")
 		if err := decompress.UncompressZstFile(opts.BootImage, mc.Bootable.Path); err != nil {
 			return nil, fmt.Errorf("update boot image failed: %w", err)
 		}
@@ -53,7 +53,7 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 	}
 
 	if mc.DataDisk.Version != opts.DataVersion {
-		logrus.Warnf("Data image version is not match, try to update data image")
+		logrus.Infof("Data image version is not match, try to update data image")
 		if err := machine.CreateAndResizeDisk(mc.DataDisk.Path, define.DataDiskSizeInGB); err != nil {
 			return nil, fmt.Errorf("update data image failed: %w", err)
 		}
