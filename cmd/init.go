@@ -15,6 +15,7 @@ import (
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/machine/workspace"
 
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -76,6 +77,7 @@ var initCmd = cli.Command{
 }
 
 func initMachine(ctx context.Context, cli *cli.Command) error {
+	logrus.Infof("=========== INIT =========")
 	opts := &vmconfig.VMOpts{
 		VMName:      cli.String("name"),
 		Workspace:   cli.String("workspace"),

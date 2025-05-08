@@ -57,6 +57,8 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/oomol-lab/ovm-ssh-agent/v3 v3.0.0 h1:QRRornLkmEhMXjKwspfBsSh23VnqpRc+MycqprK5JWU=
 github.com/oomol-lab/ovm-ssh-agent/v3 v3.0.0/go.mod h1:AiTDS3XP3+8HY8Y0e9bhE6xXeirtTKvZxdtNcI6ra7g=
+github.com/oomol-lab/ssh-forward v0.0.0-20250507105559-91763745d836 h1:uRI6+m0MA6wTkQDd8VDvYfdzeeEiBZdoW6mgjU1cD5Q=
+github.com/oomol-lab/ssh-forward v0.0.0-20250507105559-91763745d836/go.mod h1:/X60uEwaCA1Bt0AJ+6VShkjErRBbkDbzmqwxR8jPpMI=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

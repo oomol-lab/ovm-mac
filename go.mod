@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/json-iterator/go v1.1.12
 	github.com/oomol-lab/ovm-ssh-agent/v3 v3.0.0
-	github.com/oomol-lab/ssh-forward v0.0.0-00010101000000-000000000000
+	github.com/oomol-lab/ssh-forward v0.0.0-20250507105559-91763745d836
 	github.com/prashantgupta24/mac-sleep-notifier v1.0.1
 	github.com/shirou/gopsutil/v4 v4.25.3
 	github.com/sirupsen/logrus v1.9.3
@@ -26,8 +26,6 @@ require (
 	golang.org/x/sync v0.14.0
 	golang.org/x/sys v0.33.0
 )
-
-replace github.com/oomol-lab/ssh-forward => /Users/danhexon/GolandProjects/ssh-forward/
 
 require (
 	github.com/ebitengine/purego v0.8.2 // indirect

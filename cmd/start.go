@@ -43,6 +43,7 @@ var startCmd = cli.Command{
 const tickerInterval = 300 * time.Millisecond
 
 func start(parentCtx context.Context, cli *cli.Command) error {
+	logrus.Infof("=========== START =========")
 	opts := &vmconfig.VMOpts{
 		VMName:    cli.String("name"),
 		PPID:      cli.Int("ppid"),
