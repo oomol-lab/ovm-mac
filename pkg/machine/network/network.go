@@ -52,7 +52,7 @@ func StartGvproxy(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	// gvproxy endpoint, which provide network backend for vfkit/krunkit
 	gvpEndPoint := io2.NewFile(mc.GetNetworkStackEndpoint())
 
-	if err := gvpEndPoint.Delete(true); err != nil {
+	if err := gvpEndPoint.DeleteInDir(vmconfig.Workspace); err != nil {
 		return fmt.Errorf("unable to remove gvproxy endpoint file: %w", err)
 	}
 	gvpCmd.AddVfkitSocket(fmt.Sprintf("unixgram://%s", gvpEndPoint.GetPath()))

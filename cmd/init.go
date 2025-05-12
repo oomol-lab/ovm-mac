@@ -13,9 +13,7 @@ import (
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/shim"
 	"bauklotze/pkg/machine/vmconfig"
-	"bauklotze/pkg/machine/workspace"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -64,20 +62,16 @@ var initCmd = cli.Command{
 			Value:    "v1.0",
 			Required: true,
 		},
+
 		&cli.StringFlag{
 			Name:  "vmm",
-			Usage: "VMM provider to use",
-			Value: "krunkit",
-		},
-		&cli.StringFlag{
-			Name:  "report-url",
-			Usage: "URL to send report events to",
+			Usage: "vm provider, support: krunkit, vfkit",
+			Value: vmconfig.GetVMM(),
 		},
 	},
 }
 
 func initMachine(ctx context.Context, cli *cli.Command) error {
-	logrus.Infof("=========== INIT =========")
 	opts := &vmconfig.VMOpts{
 		VMName:      cli.String("name"),
 		Workspace:   cli.String("workspace"),
@@ -88,22 +82,13 @@ func initMachine(ctx context.Context, cli *cli.Command) error {
 		BootImage:   cli.String("boot"),
 		BootVersion: cli.String("boot-version"),
 		DataVersion: cli.String("data-version"),
+		VMM:         cli.String("vmm"),
 	}
 
 	// add a default mount point that store generated ignition scripts
 	opts.Volumes = append(opts.Volumes, define.IgnMnt)
 
-	workspace.SetWorkspace(opts.Workspace)
-
-	events.ReportURL = opts.ReportURL
-
-	vmType, err := vmconfig.GetProvider()
-	if err != nil {
-		return fmt.Errorf("get provider failed: %w", err)
-	}
-	opts.VMType = vmType
-
-	vmcFile := filepath.Join(workspace.GetWorkspace(), define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
+	vmcFile := filepath.Join(vmconfig.Workspace, define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
 
 	var reinit bool
 	mc, err := vmconfig.LoadMachineFromFQPath(vmcFile)

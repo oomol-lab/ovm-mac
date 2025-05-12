@@ -35,7 +35,7 @@ func RestService(ctx context.Context, mc *vmconfig.MachineConfig, endPoint strin
 	// The Delete(true) operation will ensure that **only files in the workspace are deleted**
 	UDF := io.NewFile(endPoint)
 
-	if err := UDF.Delete(true); err != nil {
+	if err := UDF.DeleteInDir(vmconfig.Workspace); err != nil {
 		return fmt.Errorf("failed to delete file %q: %w", UDF.GetPath(), err)
 	}
 

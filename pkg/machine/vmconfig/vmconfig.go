@@ -14,8 +14,8 @@ import (
 
 	"bauklotze/pkg/machine/define"
 	io2 "bauklotze/pkg/machine/io"
+
 	"bauklotze/pkg/machine/volumes"
-	"bauklotze/pkg/machine/workspace"
 	"bauklotze/pkg/port"
 
 	"github.com/containers/storage/pkg/ioutils"
@@ -28,8 +28,10 @@ type VMState struct {
 	PodmanReady bool
 }
 
+var Workspace string
+
 type VMProvider interface { //nolint:interfacebloat
-	InitializeVM(opts VMOpts) (*MachineConfig, error)
+	InitializeVM(opts *VMOpts) (*MachineConfig, error)
 	StartNetworkProvider(ctx context.Context, mc *MachineConfig) error
 	StartVMProvider(ctx context.Context, mc *MachineConfig) error
 	StartSSHAuthService(ctx context.Context, mc *MachineConfig) error
@@ -39,7 +41,7 @@ type VMProvider interface { //nolint:interfacebloat
 
 func (mc *MachineConfig) PodmanAPISocketHost() string {
 	// io.NewDir(mc.Dirs.SocksDir).AppendFile("podman-api.sock").
-	return io2.NewFile(mc.Dirs.SocksDir).AppendFile("podman-api.sock").GetPath()
+	return mc.Dirs.SocksDir + "podman-api.sock"
 }
 
 // MakeDirs make workspace directories for vm, include logs, config, socks, data dir
@@ -65,13 +67,13 @@ func (mc *MachineConfig) MakeDirs() error {
 
 func (mc *MachineConfig) CreateSSHKey() error {
 	privateKeyFile := io2.NewFile(mc.SSH.PrivateKey)
-	if err := privateKeyFile.Delete(true); err != nil {
+	if err := privateKeyFile.DeleteInDir(Workspace); err != nil {
 		return fmt.Errorf("delete ssh private key err: %w", err)
 	}
 
 	publicKeyFile := io2.NewFile(fmt.Sprintf("%s.pub", mc.SSH.PrivateKey))
 
-	if err := publicKeyFile.Delete(true); err != nil {
+	if err := publicKeyFile.DeleteInDir(Workspace); err != nil {
 		return fmt.Errorf("delete ssh public key err: %w", err)
 	}
 
@@ -112,6 +114,7 @@ type MachineDirs struct {
 }
 
 type MachineConfig struct {
+	VMType       string          `json:"vmType"              validate:"required"`
 	Dirs         MachineDirs     `json:"dirs"                validate:"required"`
 	VMName       string          `json:"name"                validate:"required"`
 	Bootable     Bootable        `json:"bootable"            validate:"required"`
@@ -172,17 +175,16 @@ type SSHConfig struct {
 }
 
 // NewMachineConfig initializes and returns a new MachineConfig object using the provided VMOpts configuration.
-func NewMachineConfig(opts VMOpts) *MachineConfig {
+func NewMachineConfig(opts *VMOpts) *MachineConfig {
 	mc := new(MachineConfig)
+	mc.VMType = opts.VMM
 	mc.VMName = opts.VMName
 
-	space := workspace.GetWorkspace()
-
-	mc.Dirs.ConfigDir = filepath.Join(space, define.ConfigPrefixDir)
-	mc.Dirs.DataDir = filepath.Join(space, define.DataPrefixDir)
-	mc.Dirs.LogsDir = filepath.Join(space, define.LogPrefixDir)
-	mc.Dirs.SocksDir = filepath.Join(space, define.SocksPrefixDir)
-	mc.Dirs.PidsDir = filepath.Join(space, define.PidsPrefixDir)
+	mc.Dirs.ConfigDir = filepath.Join(Workspace, define.ConfigPrefixDir)
+	mc.Dirs.DataDir = filepath.Join(Workspace, define.DataPrefixDir)
+	mc.Dirs.LogsDir = filepath.Join(Workspace, define.LogPrefixDir)
+	mc.Dirs.SocksDir = filepath.Join(Workspace, define.SocksPrefixDir)
+	mc.Dirs.PidsDir = filepath.Join(Workspace, define.PidsPrefixDir)
 
 	mc.ConfigFile = filepath.Join(mc.Dirs.ConfigDir, fmt.Sprintf("%s.json", opts.VMName))
 	mc.Resources = ResourceConfig{

@@ -73,7 +73,7 @@ func WaitSSHStarted(ctx context.Context, mc *vmconfig.MachineConfig) bool {
 
 // InitializeVM initialize the data and boot image and write the machine config.
 // both the vfkit and krunkit using the same init logic
-func InitializeVM(opts vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
+func InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	mc := vmconfig.NewMachineConfig(opts)
 
 	if err := mc.GetSSHPort(); err != nil {

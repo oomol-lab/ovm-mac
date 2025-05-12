@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"bauklotze/pkg/machine/workspace"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/containers/common/pkg/strongunits"
@@ -43,18 +41,19 @@ func (m *PathWrapper) GetPath() string {
 	return m.path
 }
 
-func (m *PathWrapper) Delete(safe bool) error {
-	workspaceDir := workspace.GetWorkspace()
-	if workspaceDir == "" {
-		return errors.New("workspace dir is empty")
+func (m *PathWrapper) DeleteInDir(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("dir is empty, can not delete file in dir")
 	}
 
-	if safe {
-		if !strings.HasPrefix(m.path, workspaceDir) {
-			return fmt.Errorf("path %q is not a workspace, refuse delete", m.path)
-		}
+	if !strings.HasPrefix(m.path, dir) {
+		return fmt.Errorf("target file %s is not in dir %s", m.path, dir)
 	}
+	
+	return m.Delete()
+}
 
+func (m *PathWrapper) Delete() error {
 	logrus.Infof("delete file %s", m.path)
 	if err := os.RemoveAll(m.path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err //nolint:wrapcheck

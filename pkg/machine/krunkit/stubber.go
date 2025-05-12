@@ -40,8 +40,8 @@ func NewProvider() *Stubber {
 	}
 }
 
-func (l *Stubber) VMType() vmconfig.VMType {
-	return vmconfig.LibKrun
+func (l *Stubber) VMType() string {
+	return vmconfig.KrunKit
 }
 
 func (l *Stubber) StartNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
@@ -136,7 +136,7 @@ func startKrunKit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	return nil
 }
 
-func (l *Stubber) InitializeVM(opts vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
+func (l *Stubber) InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	return machine.InitializeVM(opts) //nolint:wrapcheck
 }
 

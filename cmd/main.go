@@ -9,6 +9,7 @@ import (
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
+	"bauklotze/pkg/machine/vmconfig"
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
@@ -29,18 +30,27 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "log-out",
-				Usage: "where to write the log, support file, stdout, default is file( in workspace log dir )",
+				Usage: "where to write the log, support file, stdout, default is file",
 				Value: define.LogOutFile,
+			},
+			&cli.StringFlag{
+				Name:  "report-url",
+				Usage: "URL to send report events to",
 			},
 			&cli.IntFlag{
 				Name:  "ppid",
 				Usage: "Parent process id, if not given, the ppid is the current process's ppid",
-				Value: int64(os.Getpid()),
+				Value: int64(os.Getppid()),
 			},
 		},
 		Commands: []*cli.Command{
 			&initCmd,
 			&startCmd,
+		},
+		Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
+			events.SetReportURL(command.String("report-url"))
+			vmconfig.Workspace = command.String("workspace")
+			return ctx, nil
 		},
 	}
 

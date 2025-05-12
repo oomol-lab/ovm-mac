@@ -25,21 +25,21 @@ import (
 // Init initializes the VM provider based on the provided options.
 func Init(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	var vmp vmconfig.VMProvider
-
-	switch opts.VMType {
-	case vmconfig.LibKrun:
+	switch opts.VMM {
+	case vmconfig.KrunKit:
 		vmp = krunkit.NewProvider()
 	case vmconfig.VFkit:
 		vmp = vfkit.NewProvider()
 	default:
-		return nil, fmt.Errorf("invalid VM type: %s", opts.VMType.String())
+		return nil, fmt.Errorf("invalid VM type")
 	}
 
-	return vmp.InitializeVM(*opts) //nolint:wrapcheck
+	return vmp.InitializeVM(opts) //nolint:wrapcheck
 }
 
 // Update updates the VM provider with the provided options.
 func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
+	mc.VMType = opts.VMM
 	mc.Resources.CPUs = opts.CPUs
 	mc.Resources.MemoryInMB = opts.MemoryInMiB
 	mc.Mounts = volumes.CmdLineVolumesToMounts(opts.Volumes)

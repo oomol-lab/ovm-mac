@@ -20,7 +20,6 @@ import (
 	"bauklotze/pkg/machine/shim"
 	"bauklotze/pkg/machine/vfkit"
 	"bauklotze/pkg/machine/vmconfig"
-	"bauklotze/pkg/machine/workspace"
 	"bauklotze/pkg/registry"
 	"bauklotze/pkg/system"
 
@@ -43,23 +42,12 @@ var startCmd = cli.Command{
 const tickerInterval = 300 * time.Millisecond
 
 func start(parentCtx context.Context, cli *cli.Command) error {
-	logrus.Infof("=========== START =========")
 	opts := &vmconfig.VMOpts{
-		VMName:    cli.String("name"),
-		PPID:      cli.Int("ppid"),
-		Workspace: cli.String("workspace"),
+		VMName: cli.String("name"),
+		PPID:   cli.Int("ppid"),
 	}
 
-	workspace.SetWorkspace(opts.Workspace)
-	events.ReportURL = opts.ReportURL
-
-	vmType, err := vmconfig.GetProvider()
-	if err != nil {
-		return fmt.Errorf("get provider failed: %w", err)
-	}
-	opts.VMType = vmType
-
-	vmcFile := filepath.Join(workspace.GetWorkspace(), define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
+	vmcFile := filepath.Join(vmconfig.Workspace, define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
 
 	// We first check the status of the pid passed in via --ppid,
 	// and if it is inactive, exit immediately without running any of the following code
@@ -78,17 +66,16 @@ func start(parentCtx context.Context, cli *cli.Command) error {
 	WatchPPID(g, ctx, opts)
 	ListenSignal(g, ctx)
 	StartRestAPI(g, ctx, mc)
-	startMachine(g, ctx, mc, opts)
+	startMachine(g, ctx, mc)
 
 	return g.Wait() //nolint:wrapcheck
 }
 
-func startMachine(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) {
+func startMachine(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineConfig) {
 	g.Go(func() error {
 		var vmp vmconfig.VMProvider
-		switch opts.VMType {
-		case vmconfig.LibKrun:
-			logrus.Infof("vm provider: %q", opts.VMType.String())
+		switch mc.VMType {
+		case vmconfig.KrunKit:
 			vmp = krunkit.NewProvider()
 		case vmconfig.VFkit:
 			vmp = vfkit.NewProvider()

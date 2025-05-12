@@ -39,11 +39,11 @@ func NewProvider() *Stubber {
 	}
 }
 
-func (l *Stubber) InitializeVM(opts vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
+func (l *Stubber) InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	return machine.InitializeVM(opts) //nolint:wrapcheck
 }
 
-func (l *Stubber) VMType() vmconfig.VMType {
+func (l *Stubber) VMType() string {
 	return vmconfig.VFkit
 }
 

@@ -18,7 +18,7 @@ func GenerateIgnScripts(mc *vmconfig.MachineConfig) error {
 		&DynamicIgnitionV3{
 			CodeBuffer:      nil,
 			IgnFile:         io.NewFile(ignScriptFile),
-			VMType:          vmconfig.LibKrun,
+			VMType:          vmconfig.KrunKit,
 			Mounts:          mc.Mounts,
 			SSHIdentityPath: io.NewFile(mc.SSH.PrivateKey),
 		})

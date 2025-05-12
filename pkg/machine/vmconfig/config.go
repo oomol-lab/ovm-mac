@@ -24,7 +24,5 @@ type VMOpts struct {
 	DataVersion string
 	ReInit      bool
 	ReportURL   string
-
-	// Inject VMType to reduce the number of args
-	VMType VMType
+	VMM         string
 }

@@ -12,7 +12,6 @@ import (
 	"text/template"
 
 	"bauklotze/pkg/machine/io"
-	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/machine/volumes"
 
 	"github.com/sirupsen/logrus"
@@ -21,14 +20,14 @@ import (
 type DynamicIgnitionV3 struct {
 	IgnFile         *io.PathWrapper
 	SSHIdentityPath *io.PathWrapper
-	VMType          vmconfig.VMType
+	VMType          string
 	Mounts          []volumes.Mount
 	TimeZone        string
 	CodeBuffer      *bytes.Buffer
 }
 
 func (ign *DynamicIgnitionV3) Write() error {
-	err := ign.IgnFile.Delete(false)
+	err := ign.IgnFile.Delete()
 	if err != nil {
 		return fmt.Errorf("failed to delete ignition file: %w", err)
 	}
@@ -82,7 +81,7 @@ func (ign *DynamicIgnitionV3) GeneratePodmanMachineConfig() error {
 	data := struct {
 		CurrentVMType string
 	}{
-		CurrentVMType: ign.VMType.String(),
+		CurrentVMType: ign.VMType,
 	}
 
 	if err := t.Execute(mybuff, data); err != nil {

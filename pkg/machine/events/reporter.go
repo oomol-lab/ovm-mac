@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ReportURL    string
+	reportURL    string
 	CurrentStage string
 )
 
@@ -22,14 +22,18 @@ type event struct {
 	Value string
 }
 
+func SetReportURL(url string) {
+	reportURL = url
+}
+
 // notify sends an event to the report URL
 func notify(e event) {
-	if ReportURL == "" {
+	if reportURL == "" {
 		return
 	}
 
 	client := httpclient.New().
-		SetTransport(httpclient.CreateUnixTransport(ReportURL)).
+		SetTransport(httpclient.CreateUnixTransport(reportURL)).
 		SetBaseURL("http://local").
 		SetHeader("Content-Type", "text/plain").
 		SetQueryParams(map[string]string{
@@ -39,14 +43,14 @@ func notify(e event) {
 		})
 
 	logrus.Infof("Send Event to %s , stage: %s, name: %s, value: %s \n",
-		ReportURL,
+		reportURL,
 		client.QueryParam.Get("stage"),
 		client.QueryParam.Get("name"),
 		client.QueryParam.Get("value"),
 	)
 
 	if err := client.Get("notify"); err != nil {
-		logrus.Warnf("Failed to notify %q: %v", ReportURL, err)
+		logrus.Warnf("Failed to notify %q: %v", reportURL, err)
 	}
 }
 
