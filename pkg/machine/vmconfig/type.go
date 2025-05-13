@@ -1,6 +1,10 @@
 package vmconfig
 
-import "runtime"
+import (
+	"runtime"
+
+	"github.com/sirupsen/logrus"
+)
 
 const (
 	KrunKit = "krunkit"
@@ -9,8 +13,9 @@ const (
 
 func GetVMM() string {
 	provider := KrunKit
-	if runtime.GOARCH == "x86_64" {
+	if runtime.GOARCH == "amd64" {
 		provider = VFkit
 	}
+	logrus.Info("vm provider is: ", provider)
 	return provider
 }
