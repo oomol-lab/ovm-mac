@@ -8,240 +8,260 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
+	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
-	"strings"
-	"time"
 
-	allFlag "bauklotze/pkg/machine/allflag"
-	"bauklotze/pkg/machine/defconfig"
 	"bauklotze/pkg/machine/define"
-	"bauklotze/pkg/machine/io"
-	"bauklotze/pkg/machine/volumes"
+	"bauklotze/pkg/machine/fs"
 
-	"github.com/containers/common/pkg/strongunits"
+	"bauklotze/pkg/machine/volumes"
+	"bauklotze/pkg/port"
+
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/go-playground/validator/v10"
-
-	gvproxy "github.com/containers/gvisor-tap-vsock/pkg/types"
+	"github.com/sirupsen/logrus"
 )
 
+type VMState struct {
+	SSHReady    bool
+	PodmanReady bool
+}
+
+var Workspace string
+
 type VMProvider interface { //nolint:interfacebloat
-	VMType() defconfig.VMType
-	ExtractBootable(userInputPath string, mc *MachineConfig) error
-	CreateVMConfig(mc *MachineConfig) error
-	MountType() volumes.VolumeMountType
-	SetupProviderNetworking(mc *MachineConfig, cmd *gvproxy.GvproxyCommand) error
-	StartVM(ctx context.Context, mc *MachineConfig) error
+	InitializeVM(opts *VMOpts) (*MachineConfig, error)
+	StartNetworkProvider(ctx context.Context, mc *MachineConfig) error
+	StartVMProvider(ctx context.Context, mc *MachineConfig) error
+	GetVMState() *VMState
 }
 
-func (mc *MachineConfig) PodmanAPISocketHost() *io.FileWrapper {
-	socksDir := mc.Dirs.SocksDir
-	s := fmt.Sprintf("%s-podman-api.sock", mc.VMName)
-	podmanAPI, _ := socksDir.AppendToNewVMFile(s)
-	return podmanAPI
+func (mc *MachineConfig) PodmanAPISocketHost() string {
+	// fs.NewDir(mc.Dirs.SocksDir).AppendFile("podman-api.sock").
+	return mc.Dirs.SocksDir + "podman-api.sock"
 }
 
-// HostUser describes the host user
-type HostUser struct {
-	UserName string `json:"UserName"`
+// MakeDirs make workspace directories for vm, include logs, config, socks, data dir
+func (mc *MachineConfig) MakeDirs() error {
+	if err := os.MkdirAll(mc.Dirs.LogsDir, os.ModePerm); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if err := os.MkdirAll(mc.Dirs.ConfigDir, os.ModePerm); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if err := os.MkdirAll(mc.Dirs.SocksDir, os.ModePerm); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if err := os.MkdirAll(mc.Dirs.DataDir, os.ModePerm); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	return os.MkdirAll(mc.Dirs.PidsDir, os.ModePerm) //nolint:wrapcheck
+}
+
+func (mc *MachineConfig) CreateSSHKey() error {
+	privateKeyFile := fs.NewFile(mc.SSH.PrivateKeyPath)
+	if err := privateKeyFile.DeleteInDir(Workspace); err != nil {
+		return fmt.Errorf("delete ssh private key err: %w", err)
+	}
+
+	publicKeyFile := fs.NewFile(fmt.Sprintf("%s.pub", mc.SSH.PrivateKeyPath))
+
+	if err := publicKeyFile.DeleteInDir(Workspace); err != nil {
+		return fmt.Errorf("delete ssh public key err: %w", err)
+	}
+
+	var sshCommand = []string{"ssh-keygen", "-N", "", "-t", "ed25519", "-f"}
+	args := append(append([]string{}, sshCommand[1:]...), mc.SSH.PrivateKeyPath)
+	cmd := exec.Command(sshCommand[0], args...)
+	logrus.Infof("full cmdline: %q", cmd.Args)
+
+	return cmd.Run() //nolint:wrapcheck
+}
+
+// GetNetworkStackEndpoint return the unix socket path for network stack endpoint which provided by gvproxy.
+// the NetworkStackEndpoint provides the network stack for vm
+func (mc *MachineConfig) GetNetworkStackEndpoint() string {
+	return fs.NewFile(mc.Dirs.SocksDir).AppendFile(define.GvProxyEndPoint).GetPath()
+}
+
+func (mc *MachineConfig) GetSSHPort() error {
+	if port.IsListening(mc.SSH.Port) {
+		logrus.Warnf("%d not available, try to allocate a free port for ssh", mc.SSH.Port)
+		p, err := port.GetFree()
+		if err != nil {
+			return fmt.Errorf("failed to get free port: %w", err)
+		}
+		logrus.Infof("get free port: %d", p)
+		mc.SSH.Port = p
+	}
+
+	return nil
+}
+
+type MachineDirs struct {
+	ConfigDir string `json:"configDir" validate:"required"`
+	DataDir   string `json:"dataDir"   validate:"required"`
+	PidsDir   string `json:"pidsDir"   validate:"required"`
+	LogsDir   string `json:"logsDir"   validate:"required"`
+	SocksDir  string `json:"socksDir"  validate:"required"`
 }
 
 type MachineConfig struct {
-	VMProvider VMProvider `json:"-"`
-	GvpCmd     *exec.Cmd  `json:"-"`
-	VmmCmd     *exec.Cmd  `json:"-"`
+	VMType       string          `json:"vmType"              validate:"required"`
+	Dirs         MachineDirs     `json:"dirs"                validate:"required"`
+	VMName       string          `json:"name"                validate:"required"`
+	Bootable     Bootable        `json:"bootable"            validate:"required"`
+	DataDisk     DataDisk        `json:"dataDisk"            validate:"required"`
+	ConfigFile   string          `json:"configFile"          validate:"required"`
+	Resources    ResourceConfig  `json:"resources"`
+	Mounts       []volumes.Mount `json:"mounts"`
+	SSH          SSHConfig       `json:"ssh"                 validate:"required"`
+	ReportURL    string          `json:"reportURL,omitempty"`
+	PodmanSocks  podmanSocks     `json:"podmanSocks"         validate:"required"`
+	PIDFiles     pidFiles        `json:"pidFiles"`
+	SSHAuthSocks SSHAuthSocks    `json:"sshAuthSocks"        validate:"required"`
 
-	Created  time.Time    `json:"Created"`
-	LastUp   time.Time    `json:"LastUp"`
-	Dirs     *MachineDirs `json:"Dirs"`
-	HostUser HostUser     `json:"HostUser"`
-	VMName   string       `json:"Name"`
+	// RestAPISocks is the socks for rest api, it is used by appliance to connect to query the status of vm
+	// exec cmdline in vm etc...
+	RestAPISocks string `json:"restAPISocks" validate:"required"`
+	KrunKitBin   string `json:"krunKitBin"   validate:"required"`
+	VFKitBin     string `json:"vfKitBin"     validate:"required"`
+	GVProxyBin   string `json:"gvProxyBin"   validate:"required"`
+}
 
-	Bootable Bootable `json:"Bootable"`
-	DataDisk DataDisk `json:"DataDisk"`
+type SSHAuthSocks struct {
+	LocalSocks  string `json:"localSocks"  validate:"required"`
+	RemoteSocks string `json:"remoteSocks" validate:"required"`
+}
 
-	AppleKrunkitHypervisor *AppleKrunkitConfig `json:"AppleKrunkitHypervisor,omitempty"`
-	AppleVFkitHypervisor   *AppleVFkitConfig   `json:"AppleVFkitConfig,omitempty"`
+// gvproxy will forward the connect from host (InHost) to guest(InGuest)
+type podmanSocks struct {
+	// podman api socks in host
+	InHost string `json:"inHost" validate:"required"`
+	// podman api socks in guest
+	InGuest string `json:"inGuest" validate:"required"`
+}
 
-	ConfigPath *io.FileWrapper  `json:"ConfigPath"`
-	Resources  ResourceConfig   `json:"Resources"`
-	Mounts     []*volumes.Mount `json:"Mounts"`
-	GvProxy    GvproxyCommand   `json:"GvProxy"`
-	SSH        SSHConfig        `json:"SSH"`
-	Starting   bool             `json:"Starting"`
-	ReportURL  *io.FileWrapper  `json:"ReportURL,omitempty"`
+// pidFiles contains the pid files for gvproxy, krunKit and vfKit
+type pidFiles struct {
+	GvproxyPidFile string `json:"gvproxyPidFile"`
+	KrunKitPidFile string `json:"krunKitPidFile"`
+	VFKitPidFile   string `json:"vfKitPidFile"`
 }
 
 type Bootable struct {
-	Image   *io.FileWrapper `json:"ImagePath" validate:"required"`
-	Version string          `json:"Version"   validate:"required"`
+	Path    string `json:"path"    validate:"required"`
+	Version string `json:"version" validate:"required"`
 }
 
 type DataDisk struct {
-	Image   *io.FileWrapper `json:"ImagePath" validate:"required"`
-	Version string          `json:"Version"   validate:"required"`
-}
-
-type GvproxyCommand struct {
-	// Print packets on stderr
-	Debug bool `json:"Debug,omitempty"`
-	// Length of packet
-	// Larger packets means less packets to exchange for the same amount of data (and less protocol overhead)
-	MTU int `json:"MTU,omitempty"`
-	// Values passed in by forward-xxx flags in commandline (forward-xxx:info)
-	ForwardInfo map[string][]string `json:"ForwardInfo,omitempty"`
-	// List of endpoints the user wants to listen to
-	Endpoints []string `json:"Endpoints,omitempty"`
-	// Map of different sockets provided by user (socket-type allflag:socket)
-	Sockets map[string]string `json:"Sockets,omitempty"`
-	// Logfile where gvproxy should redirect logs
-	LogFile string `json:"LogFile,omitempty"`
-	// File where gvproxy's pid is stored
-	PidFile string `json:"PidFile,omitempty"`
-	// SSHPort to access the guest VM
-	SSHPort int `json:"SSHPort,omitempty"`
-	// Podman fordwarding host to guest endpoint, for compatibility
-	HostSocks []string `json:"HostSocks"`
+	Path    string `json:"path"    validate:"required"`
+	Version string `json:"version" validate:"required"`
 }
 
 // SSHConfig contains remote access information for SSH
 type SSHConfig struct {
-	// IdentityPath is the fq path to the ssh priv key
-	IdentityPath string `json:"IdentityPath"`
-	// SSH port for user networking
-	Port int `json:"Port"`
-	// RemoteUsername of the vm user
-	RemoteUsername string `json:"RemoteUsername"`
+	PrivateKeyPath string `json:"identityPath"   validate:"required"`
+	PublicKeyPath  string `json:"publicKeyPath"  validate:"required"`
+	Port           int    `json:"port"           validate:"required"`
+	RemoteUsername string `json:"remoteUsername" validate:"required"`
 }
 
-// NewMachineConfig construct a machine configure but **not* write into disk
-func NewMachineConfig(dirs *MachineDirs, sshKey *io.FileWrapper, mtype defconfig.VMType) (*MachineConfig, error) {
+// NewMachineConfig initializes and returns a new MachineConfig object using the provided VMOpts configuration.
+func NewMachineConfig(opts *VMOpts) *MachineConfig {
 	mc := new(MachineConfig)
-	mc.VMName = allFlag.VMName
-	mc.Dirs = dirs
+	mc.VMType = opts.VMM
+	mc.VMName = opts.VMName
 
-	// Assign Dirs
-	cf, err := io.NewMachineFile(filepath.Join(dirs.ConfigDir.GetPath(), fmt.Sprintf("%s.json", allFlag.VMName)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create machine config file: %w", err)
-	}
+	mc.Dirs.ConfigDir = filepath.Join(Workspace, define.ConfigPrefixDir)
+	mc.Dirs.DataDir = filepath.Join(Workspace, define.DataPrefixDir)
+	mc.Dirs.LogsDir = filepath.Join(Workspace, define.LogPrefixDir)
+	mc.Dirs.SocksDir = filepath.Join(Workspace, define.SocksPrefixDir)
+	mc.Dirs.PidsDir = filepath.Join(Workspace, define.PidsPrefixDir)
 
-	mc.ConfigPath = cf
+	mc.ConfigFile = filepath.Join(mc.Dirs.ConfigDir, fmt.Sprintf("%s.json", opts.VMName))
 	mc.Resources = ResourceConfig{
-		CPUs:           allFlag.CPUS,
-		DataDiskSizeGB: define.DataDiskSize, //nolint:mnd
-		Memory:         strongunits.MiB(allFlag.Memory),
+		CPUs:           opts.CPUs,
+		DataDiskSizeGB: define.DataDiskSizeInGB,
+		MemoryInMB:     opts.MemoryInMiB,
 	}
 
 	mc.SSH = SSHConfig{
-		IdentityPath:   sshKey.GetPath(),
+		PrivateKeyPath: filepath.Join(mc.Dirs.DataDir, define.SSHKey),
+		PublicKeyPath:  filepath.Join(mc.Dirs.DataDir, fmt.Sprintf("%s.pub", define.SSHKey)),
 		Port:           define.DefaultSSHPort,
 		RemoteUsername: define.DefaultUserInVM,
 	}
-	mc.Created = time.Now()
 
-	u, err := user.Current()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host user information for %w, %s", err, mc.ConfigPath.GetPath())
-	}
-	mc.HostUser = HostUser{
-		UserName: u.Username,
-	}
+	mc.PodmanSocks.InHost = filepath.Join(mc.Dirs.SocksDir, define.PodmanHostSocksName)
+	mc.PodmanSocks.InGuest = define.PodmanGuestSocks
 
-	return mc, nil
+	mc.RestAPISocks = filepath.Join(mc.Dirs.SocksDir, define.RESTAPIEndpointName)
+
+	mc.Bootable.Version = opts.BootVersion
+	mc.Bootable.Path = filepath.Join(mc.Dirs.DataDir, fmt.Sprintf("%s.img", mc.VMName))
+
+	mc.DataDisk.Version = opts.DataVersion
+	mc.DataDisk.Path = filepath.Join(mc.Dirs.DataDir, "data.img")
+
+	mc.Mounts = volumes.CmdLineVolumesToMounts(opts.Volumes)
+
+	mc.ReportURL = opts.ReportURL
+
+	// Set PIDFiles
+	mc.PIDFiles.GvproxyPidFile = filepath.Join(mc.Dirs.PidsDir, define.GvProxyPidName)
+	mc.PIDFiles.KrunKitPidFile = filepath.Join(mc.Dirs.PidsDir, define.KrunkitPidFile)
+	mc.PIDFiles.VFKitPidFile = filepath.Join(mc.Dirs.PidsDir, define.VFkitPidFile)
+
+	// Set SSHAuthSocks
+	mc.SSHAuthSocks.LocalSocks = filepath.Join(mc.Dirs.SocksDir, define.SSHAuthLocalSockName)
+	mc.SSHAuthSocks.RemoteSocks = "/opt/ssh_auth/oo-ssh-agent.sock"
+
+	return mc
 }
 
-func LoadMachinesInDir(dirs *MachineDirs) (map[string]*MachineConfig, error) {
-	mcs := make(map[string]*MachineConfig)
-	err := filepath.WalkDir(dirs.ConfigDir.GetPath(), func(path string, d fs.DirEntry, err error) error {
-		if strings.HasSuffix(d.Name(), ".json") {
-			fullPath, err := dirs.ConfigDir.AppendToNewVMFile(d.Name())
-			if err != nil {
-				return fmt.Errorf("failed to create full path: %w", err)
-			}
-			mc, err := loadMachineFromFQPath(fullPath)
-			if err != nil {
-				return fmt.Errorf("failed to load machine config: %w", err)
-			}
+var (
+	ErrInvalidJsonFormat = errors.New("invalid json format")
+)
 
-			mc.ConfigPath = fullPath
-			mc.Dirs = dirs
-			mcs[mc.VMName] = mc
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to walk machine config dir: %w", err)
-	}
-
-	return mcs, nil
-}
-
-// LoadMachineByName returns a machine config based on the vm name and provider
-func LoadMachineByName(name string, dirs *MachineDirs) (*MachineConfig, error) {
-	fullPath, err := dirs.ConfigDir.AppendToNewVMFile(name + ".json")
-	if err != nil {
-		return nil, fmt.Errorf("error in LoadMachineByName, AppendToNewVMFile failed: %w", err)
-	}
-
-	mc, err := loadMachineFromFQPath(fullPath)
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil, fmt.Errorf("VM does not exist")
-		}
-		return nil, err
-	}
-	mc.Dirs = dirs
-	mc.ConfigPath = fullPath
-
-	return mc, nil
-}
-
-func loadMachineFromFQPath(f *io.FileWrapper) (*MachineConfig, error) {
+// LoadMachineFromPath loads a machine config from the given path and validates it
+// this function must testable
+func LoadMachineFromPath(p string) (*MachineConfig, error) {
 	mc := new(MachineConfig)
+	f := fs.NewFile(p)
+
 	b, err := f.Read()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read machine config: %w", err)
 	}
 
 	if err = json.Unmarshal(b, mc); err != nil {
-		return nil, fmt.Errorf("invalid JSON: %w", err)
+		logrus.Errorf("failed to unmarshal JSON: %v", err)
+		return nil, ErrInvalidJsonFormat
 	}
-	validate := validator.New()
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err = validate.Struct(mc); err != nil {
-		return nil, fmt.Errorf("invalid machine config: %w", err)
+		logrus.Errorf("invalid JSON struct fail: %v", err)
+		return nil, ErrInvalidJsonFormat
 	}
 
 	return mc, nil
 }
 
-func (mc *MachineConfig) GVProxyNetworkBackendSocks() (*io.FileWrapper, error) {
-	socksDir, err := mc.SocksDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workspace tmp dir: %w", err)
-	}
-	return socksDir.AppendToNewVMFile(fmt.Sprintf("%s-gvproxy.sock", mc.VMName)) //nolint:wrapcheck
-}
-
-// SocksDir is simple helper function to obtain the workspace tmp dir
-func (mc *MachineConfig) SocksDir() (*io.FileWrapper, error) {
-	if mc.Dirs == nil || mc.Dirs.SocksDir.GetPath() == "" {
-		return nil, errors.New("no workspace socks directory set")
-	}
-	return mc.Dirs.SocksDir, nil
-}
-
 // write is a non-locking way to write the machine configuration file to disk
 func (mc *MachineConfig) Write() error {
-	if mc.ConfigPath == nil {
+	if mc.ConfigFile == "" {
 		return fmt.Errorf("no configuration file associated with vm %q", mc.VMName)
 	}
 	b, err := json.Marshal(mc)
 	if err != nil {
 		return fmt.Errorf("failed to marshal machine config: %w", err)
 	}
-	return ioutils.AtomicWriteFile(mc.ConfigPath.GetPath(), b, define.DefaultFilePerm) //nolint:wrapcheck
+	return ioutils.AtomicWriteFile(mc.ConfigFile, b, define.DefaultFilePerm) //nolint:wrapcheck
 }

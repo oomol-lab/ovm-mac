@@ -3,9 +3,6 @@
 
 package events
 
-// CurrentStage Stage is the stage of the lifecycle
-var CurrentStage string
-
 const (
 	Init string = "init"
 	Run  string = "run"
@@ -26,7 +23,8 @@ type RunStageName string
 const (
 	LoadMachineConfig RunStageName = "LoadMachineConfig"
 	StartGvProxy      RunStageName = "StartGvProxy"
-	StartVMProvider   RunStageName = "StartVMProvider"
+	StartKrunKit      RunStageName = "StartKrunkit"
+	StartVFKit        RunStageName = "StartVFKit"
 	SyncMachineDisk   RunStageName = "SyncMachineDisk"
 	Ready             RunStageName = "Ready"
 	RunExit           RunStageName = "Exit"
@@ -34,14 +32,4 @@ const (
 
 const (
 	kError string = "error"
-)
-
-type event struct {
-	Stage string
-	Name  string
-	Value string
-}
-
-const (
-	PlainTextContentType = "text/plain"
 )

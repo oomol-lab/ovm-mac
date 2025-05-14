@@ -4,9 +4,6 @@
 package ignition
 
 import (
-	"bauklotze/pkg/machine/defconfig"
-	"bauklotze/pkg/machine/io"
-	"bauklotze/pkg/machine/volumes"
 	"bytes"
 	"fmt"
 	"os"
@@ -14,52 +11,50 @@ import (
 	"strings"
 	"text/template"
 
+	"bauklotze/pkg/machine/fs"
+	"bauklotze/pkg/machine/volumes"
+
 	"github.com/sirupsen/logrus"
 )
 
 type DynamicIgnitionV3 struct {
-	IgnFile         io.FileWrapper
-	VMType          defconfig.VMType
-	Mounts          []*volumes.Mount
-	SSHIdentityPath io.FileWrapper
+	File            *fs.PathWrapper
+	SSHIdentityPath *fs.PathWrapper
+	VMType          string
+	Mounts          []volumes.Mount
 	TimeZone        string
 	CodeBuffer      *bytes.Buffer
 }
 
 func (ign *DynamicIgnitionV3) Write() error {
-	err := ign.IgnFile.Delete(false)
+	err := ign.File.Delete()
 	if err != nil {
 		return fmt.Errorf("failed to delete ignition file: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(ign.IgnFile.Path), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(ign.File.GetPath()), os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create directories for ignition file: %w", err)
 	}
 
-	file, err := os.Create(ign.IgnFile.Path)
+	file, err := os.Create(ign.File.GetPath())
 	if err != nil {
 		return fmt.Errorf("failed to create ignition file: %w", err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 	_, err = file.Write(ign.CodeBuffer.Bytes())
 	if err != nil {
 		return fmt.Errorf("failed to write ignition file: %w", err)
 	}
-	logrus.Infof("Ignition file written to %s", ign.IgnFile.Path)
+	logrus.Infof("Ignition file written to %s", ign.File.GetPath())
 	return nil
 }
 
-func (ign *DynamicIgnitionV3) GenerateIgnitionConfig(mycode []string) error {
+func (ign *DynamicIgnitionV3) GenerateConfig() error {
 	ign.CodeBuffer = new(bytes.Buffer)
 
 	err := ign.GenerateMountScripts()
 	if err != nil {
 		return fmt.Errorf("failed to generate mount scripts: %w", err)
-	}
-
-	err = ign.GenerateUserProvidedScripts(mycode)
-	if err != nil {
-		return fmt.Errorf("failed to generate user provided scripts: %w", err)
 	}
 
 	if ign.SSHIdentityPath.GetPath() != "" {
@@ -80,22 +75,13 @@ func (ign *DynamicIgnitionV3) GenerateIgnitionConfig(mycode []string) error {
 	return nil
 }
 
-// GenerateUserProvidedScripts Write the user provided scripts to the DynamicIgnitionV3.CodeBuffer
-func (ign *DynamicIgnitionV3) GenerateUserProvidedScripts(mycode []string) error {
-	for _, code := range mycode {
-		ign.CodeBuffer.WriteString(fmt.Sprintln("# User provided script"))
-		ign.CodeBuffer.WriteString(fmt.Sprintf("%s\n", code))
-	}
-	return nil
-}
-
 func (ign *DynamicIgnitionV3) GeneratePodmanMachineConfig() error {
 	t := template.Must(template.New("PodmanMachineConfigScriptCodes").Parse(podmanMachineConfigScript))
 	mybuff := new(bytes.Buffer)
 	data := struct {
 		CurrentVMType string
 	}{
-		CurrentVMType: ign.VMType.String(),
+		CurrentVMType: ign.VMType,
 	}
 
 	if err := t.Execute(mybuff, data); err != nil {
@@ -110,7 +96,7 @@ func (ign *DynamicIgnitionV3) GenerateMountScripts() error {
 	t := template.Must(template.New("VirtioFsMountScriptCodes").Parse(VirtioFSMountScript))
 	mybuff := new(bytes.Buffer)
 	for _, vol := range ign.Mounts {
-		if vol.Type == volumes.VirtIOFS.String() && !strings.HasPrefix(vol.Target, filepath.Dir(ign.IgnFile.Path)) {
+		if vol.Type == volumes.VirtIOFS.String() && !strings.HasPrefix(vol.Target, filepath.Dir(ign.File.GetPath())) {
 			data := struct {
 				FsType string
 				Source string

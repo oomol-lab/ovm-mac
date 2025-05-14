@@ -4,97 +4,79 @@
 package main
 
 import (
-	_ "bauklotze/cmd/bauklotze/machine"
-	"bauklotze/cmd/registry"
-	allFlag "bauklotze/pkg/machine/allflag"
-	"bauklotze/pkg/machine/define"
-	"bauklotze/pkg/machine/events"
 	"context"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
+	"bauklotze/pkg/machine/define"
+	"bauklotze/pkg/machine/events"
+	"bauklotze/pkg/machine/fs"
+	"bauklotze/pkg/machine/vmconfig"
+
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
+	"github.com/urfave/cli/v3"
 )
-
-var (
-	rootCmd = &cobra.Command{
-		Use:                   filepath.Base(os.Args[0]) + " [options]",
-		Long:                  "Manage your bugbox",
-		SilenceUsage:          true,
-		SilenceErrors:         true,
-		TraverseChildren:      true,
-		DisableFlagsInUseLine: true,
-	}
-)
-
-func init() {
-	cobra.EnableTraverseRunHooks = false
-	cobra.OnInitialize(
-		loggingHook,
-	)
-
-	rootCmd.SetUsageTemplate(define.UsageTemplate)
-	pFlags := rootCmd.PersistentFlags()
-
-	outFlagName := registry.LogOutFlag
-	pFlags.StringVar(&allFlag.LogOut, outFlagName, registry.FileBased, "If set --log-out console, send output to terminal, if set --log-out file, send output to ${workspace}/logs/ovm.log")
-
-	workspace := registry.WorkspaceFlag
-	pFlags.StringVar(&allFlag.WorkSpace, workspace, "", "Bauklotze's HOME directory, this workspace is mandatory required")
-	_ = rootCmd.MarkPersistentFlagRequired(workspace)
-
-	ReportURLFlag := registry.ReportURLFlag
-	pFlags.StringVar(&allFlag.ReportURL, ReportURLFlag, "", "Report events to the url")
-}
 
 func main() {
-	rootCmd = parseCommands()
-	RootCmdExecute()
-}
-
-func flagErrorFunc(c *cobra.Command, e error) error {
-	e = fmt.Errorf("%w\nSee '%s --help'", e, c.CommandPath())
-	return e
-}
-
-func parseCommands() *cobra.Command {
-	for _, c := range registry.Commands {
-		addCommand(c)
+	app := cli.Command{
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:     "workspace",
+				Usage:    "workspace directory",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "name",
+				Usage:    "machine name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:  "log-out",
+				Usage: "where to write the log, support file, stdout, default is file",
+				Value: define.LogOutFile,
+			},
+			&cli.StringFlag{
+				Name:  "report-url",
+				Usage: "URL to send report events to",
+			},
+			&cli.IntFlag{
+				Name:  "ppid",
+				Usage: "Parent process id, if not given, the ppid is the current process's ppid",
+				Value: int64(os.Getppid()),
+			},
+		},
+		Commands: []*cli.Command{
+			&initCmd,
+			&startCmd,
+		},
+		Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
+			events.SetReportURL(command.String("report-url"))
+			vmconfig.Workspace = command.String("workspace")
+			loggerSetup(command.String("log-out"), command.String("workspace"))
+			return ctx, nil
+		},
 	}
 
-	rootCmd.SetFlagErrorFunc(flagErrorFunc)
-	return rootCmd
+	notifyAndExit(app.Run(context.Background(), os.Args))
 }
 
-func addCommand(c registry.CliCommand) {
-	parent := rootCmd
-	if c.Parent != nil {
-		parent = c.Parent
-	}
-	parent.AddCommand(c.Command)
-	c.Command.SetFlagErrorFunc(flagErrorFunc)
-	c.Command.SetHelpTemplate(define.HelpTemplate)
-	c.Command.SetUsageTemplate(define.UsageTemplate)
-	c.Command.DisableFlagsInUseLine = true
-}
-
-func RootCmdExecute() {
-	err := rootCmd.ExecuteContext(context.Background())
+func notifyAndExit(err error) {
+	exitCode := 0
 	if err != nil {
-		logrus.Errorf("Exit duto error: %v", err)
-		if errors.Is(err, define.ErrVMAlreadyRunning) {
-			events.NotifyError(err)
-		}
-		registry.NotifyAndExit(1)
-	} else {
-		registry.NotifyAndExit(0)
+		exitCode = 1
+		logrus.Error(err.Error())
+		events.NotifyError(err)
 	}
+	events.NotifyExit()
+	logrus.Exit(exitCode)
 }
 
-func loggingHook() {
+const MaxSizeInMB = 5
+
+// loggerSetup outType: file, stdout
+// if outType is file, workspace is required
+// if outType is terminal, workspace is not required, all output will be sent to Terminal's stdout/stderr
+func loggerSetup(outType string, workspace string) {
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:   true,
@@ -102,5 +84,23 @@ func loggingHook() {
 		DisableColors:   false,
 		TimestampFormat: "2006-01-02 15:04:05.000",
 	})
+
 	logrus.SetOutput(os.Stderr)
+
+	if outType == define.LogOutFile {
+		logFile := fs.NewFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+		if logFile.IsExist() {
+			logrus.Infof("Log file %q already exists, discarding the first 5 Mib", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+			if err := logFile.DiscardBytesAtBegin(MaxSizeInMB); err != nil {
+				logrus.Warnf("failed to discard log file: %q", err)
+			}
+		}
+
+		logrus.Infof("Save log to %q", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+		if fd, err := os.OpenFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm); err == nil {
+			os.Stdout = fd
+			os.Stderr = fd
+			logrus.SetOutput(fd)
+		}
+	}
 }

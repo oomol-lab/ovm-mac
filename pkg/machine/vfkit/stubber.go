@@ -11,117 +11,104 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strconv"
 
-	"bauklotze/pkg/decompress"
-	"bauklotze/pkg/machine/defconfig"
+	"bauklotze/pkg/machine"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
-	"bauklotze/pkg/machine/ignition"
+	"bauklotze/pkg/machine/gvproxy"
 	"bauklotze/pkg/machine/vmconfig"
-	"bauklotze/pkg/machine/volumes"
-	"bauklotze/pkg/port"
-	mypty "bauklotze/pkg/pty"
+	"bauklotze/pkg/pty"
+	"bauklotze/pkg/registry"
+	"bauklotze/pkg/system"
 
-	gvptypes "github.com/containers/gvisor-tap-vsock/pkg/types"
-	vfConfig "github.com/crc-org/vfkit/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
-type VFkitStubber struct {
-	vmconfig.AppleVFkitConfig
+type Stubber struct {
+	VMState *vmconfig.VMState
 }
 
-func (l VFkitStubber) ExtractBootable(userInputPath string, mc *vmconfig.MachineConfig) error {
-	destDir := mc.Bootable.Image.GetPath()
-	logrus.Infof("Try to decompress %s to %s", userInputPath, destDir)
-	if err := decompress.Zstd(userInputPath, mc.Bootable.Image.GetPath()); err != nil {
-		errors := fmt.Errorf("could not decompress %s to %s, %w", userInputPath, destDir, err)
-		return errors
+func NewProvider() *Stubber {
+	return &Stubber{
+		VMState: &vmconfig.VMState{
+			SSHReady:    false,
+			PodmanReady: false,
+		},
 	}
+}
+
+func (l *Stubber) InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
+	return machine.InitializeVM(opts) //nolint:wrapcheck
+}
+
+func (l *Stubber) VMType() string {
+	return vmconfig.VFkit
+}
+
+func (l *Stubber) StartNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	return gvproxy.Start(ctx, mc) //nolint:wrapcheck
+}
+
+func (l *Stubber) StartVMProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	if err := startVFkit(ctx, mc); err != nil {
+		return fmt.Errorf("failed to start virtual machine: %w", err)
+	}
+
+	if machine.WaitSSHStarted(ctx, mc) {
+		logrus.Infof("vm ssh service started")
+	}
+	l.VMState.SSHReady = true
+
+	if err := machine.WaitPodmanReady(ctx, mc.PodmanSocks.InHost); err != nil {
+		logrus.Infof("vm podman service started")
+	}
+
+	l.VMState.PodmanReady = true
+	events.NotifyRun(events.Ready)
+
 	return nil
 }
 
-func (l VFkitStubber) SetupProviderNetworking(mc *vmconfig.MachineConfig, gvcmd *gvptypes.GvproxyCommand) error {
-	gvpNetworkBackend, err := mc.GVProxyNetworkBackendSocks()
-	if err != nil {
-		return fmt.Errorf("failed to get gvproxy networking backend socket: %w", err)
-	}
-	// make sure it does not exist before gvproxy is called
-	if err := gvpNetworkBackend.Delete(true); err != nil {
-		return fmt.Errorf("failed to delete gvproxy socket: %w", err)
-	}
-	gvcmd.AddVfkitSocket(fmt.Sprintf("unixgram://%s", gvpNetworkBackend.GetPath()))
-	return nil
+func (l *Stubber) GetVMState() *vmconfig.VMState {
+	return l.VMState
 }
 
-func (l VFkitStubber) MountType() volumes.VolumeMountType {
-	return volumes.VirtIOFS
-}
-
-func (l VFkitStubber) VMType() defconfig.VMType {
-	return defconfig.VFkit
-}
-
-func (l VFkitStubber) StartVM(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	bootloader := mc.AppleVFkitHypervisor.Vfkit.VirtualMachine.Bootloader
-	if bootloader == nil {
-		return fmt.Errorf("unable to determine boot loader for this machine")
+func startVFkit(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	if err := system.KillExpectProcNameFromPPIDFile(mc.PIDFiles.VFKitPidFile, define.VfkitBinaryName); err != nil {
+		logrus.Warnf("kill krunkit from pid process failed: %v", err)
 	}
 
-	vmc := vfConfig.NewVirtualMachine(uint(mc.Resources.CPUs), uint64(mc.Resources.Memory), bootloader)
-
-	defaultDevices, err := setupDevices(mc)
+	vmc, err := machine.CreateDynamicConfigure(mc)
 	if err != nil {
-		return fmt.Errorf("failed to get default devices: %w", err)
+		return fmt.Errorf("failed to create dynamic machine configure: %w", err)
 	}
-	vmc.Devices = append(vmc.Devices, defaultDevices...)
 
-	vfkitBin := mc.Dirs.Hypervisor.Bin.GetPath()
-	logrus.Infof("vfkit binary path is: %q", vfkitBin)
-
-	cmd, err := vmc.Cmd(vfkitBin)
+	cmd, err := vmc.Cmd(mc.VFKitBin)
 	if err != nil {
-		return fmt.Errorf("failed to create vfkit command: %w", err)
+		return fmt.Errorf("failed to create krunkit command: %w", err)
 	}
 
-	if err = ignition.GenerateIgnScripts(mc); err != nil {
-		return fmt.Errorf("failed to generate ignition scripts: %w", err)
-	}
+	cmd.Args = append(cmd.Args, "--log-level", "info")
+	cmd.Args = append(cmd.Args, "--device", "virtio-serial,stdio")
 
-	vfkitCmd := exec.CommandContext(ctx, vfkitBin, cmd.Args[1:]...)
+	cmd = exec.CommandContext(ctx, mc.VFKitBin, cmd.Args[1:]...)
 
-	logrus.Infof("FULL VFKIT CMDLINE: %q", vfkitCmd.Args)
-	events.NotifyRun(events.StartVMProvider, "vfkit staring...")
+	logrus.Infof("full cmdline: %q", cmd.Args)
 
-	// Run vfkit in pty, the pty should never close because the vfkit is a background process
-	ptmx, err := mypty.RunInPty(vfkitCmd)
+	events.NotifyRun(events.StartVFKit)
+	ptmx, err := pty.RunInPty(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to run vfkit in pty: %w", err)
+		return fmt.Errorf("failed to run krunkit in pty: %w", err)
 	}
-	mc.VmmCmd = vfkitCmd
+
 	go func() {
 		_, _ = io.Copy(os.Stdout, ptmx)
 	}()
 
-	events.NotifyRun(events.StartVMProvider, "vfkit started")
-
-	return nil
-}
-
-// CreateVMConfig generates VM settings aligned with the krunkit structure,
-// the structure only used to boot krunkit virtual Machine
-func (l VFkitStubber) CreateVMConfig(mc *vmconfig.MachineConfig) error {
-	mc.AppleVFkitHypervisor = new(vmconfig.AppleVFkitConfig)
-	mc.AppleVFkitHypervisor.Vfkit = vmconfig.Helper{}
-	bl := vfConfig.NewEFIBootloader(fmt.Sprintf("%s/efi-bl-%s", mc.Dirs.DataDir.GetPath(), mc.VMName), true)
-	mc.AppleVFkitHypervisor.Vfkit.VirtualMachine = vfConfig.NewVirtualMachine(uint(mc.Resources.CPUs), uint64(mc.Resources.Memory), bl)
-	randPort, err := port.GetFree(0)
-	if err != nil {
-		return fmt.Errorf("failed to get random port: %w", err)
+	if err := os.WriteFile(mc.PIDFiles.VFKitPidFile, []byte(fmt.Sprintf("%d", cmd.Process.Pid)), 0644); err != nil {
+		return fmt.Errorf("unable to write krunkit pid file: %w", err)
 	}
-	// Endpoint is a string: http://127.0.0.1/[random_port]
-	mc.AppleVFkitHypervisor.Vfkit.Endpoint = fmt.Sprintf("%s:%s", define.LocalHostURL, strconv.Itoa(randPort))
-	mc.AppleVFkitHypervisor.Vfkit.LogLevel = logrus.InfoLevel
+
+	registry.RegistryCmd(cmd)
 	return nil
 }

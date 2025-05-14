@@ -7,21 +7,35 @@ import (
 	"net/url"
 
 	"bauklotze/pkg/httpclient"
-	allFlag "bauklotze/pkg/machine/allflag"
 
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	reportURL    string
+	CurrentStage string
+)
+
+type event struct {
+	Stage string
+	Name  string
+	Value string
+}
+
+func SetReportURL(url string) {
+	reportURL = url
+}
+
 // notify sends an event to the report URL
 func notify(e event) {
-	if allFlag.ReportURL == "" {
+	if reportURL == "" {
 		return
 	}
 
 	client := httpclient.New().
-		SetTransport(httpclient.CreateUnixTransport(allFlag.ReportURL)).
+		SetTransport(httpclient.CreateUnixTransport(reportURL)).
 		SetBaseURL("http://local").
-		SetHeader("Content-Type", PlainTextContentType).
+		SetHeader("Content-Type", "text/plain").
 		SetQueryParams(map[string]string{
 			"stage": e.Stage,
 			"name":  e.Name,
@@ -29,18 +43,17 @@ func notify(e event) {
 		})
 
 	logrus.Infof("Send Event to %s , stage: %s, name: %s, value: %s \n",
-		allFlag.ReportURL,
+		reportURL,
 		client.QueryParam.Get("stage"),
 		client.QueryParam.Get("name"),
 		client.QueryParam.Get("value"),
 	)
 
 	if err := client.Get("notify"); err != nil {
-		logrus.Warnf("Failed to notify %q: %v\n", allFlag.ReportURL, err)
+		logrus.Warnf("Failed to notify %q: %v", reportURL, err)
 	}
 }
 
-// NotifyInit Generic Notifier for InitStage
 func NotifyInit(name InitStageName, value ...string) {
 	v := ""
 	if len(value) > 0 {

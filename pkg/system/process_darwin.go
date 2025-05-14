@@ -8,11 +8,11 @@ package system
 import (
 	"fmt"
 
-	"github.com/shirou/gopsutil/v3/process"
+	"github.com/shirou/gopsutil/v4/process"
 )
 
-// IsProcessAliveV4 if return err != nil, process not found
-func IsProcessAliveV4(pid int) (bool, error) {
+// IsProcessAlive if return err != nil, process not found
+func IsProcessAlive(pid int) (bool, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return false, fmt.Errorf("failed to find process: %w", err)

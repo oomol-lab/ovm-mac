@@ -6,7 +6,7 @@
 package vmconfig
 
 import (
-	"bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 
 	vfConfig "github.com/crc-org/vfkit/pkg/config"
 	"github.com/sirupsen/logrus"
@@ -15,7 +15,7 @@ import (
 type Helper struct {
 	LogLevel       logrus.Level             `json:"LogLevel"`
 	Endpoint       string                   `json:"Endpoint"`
-	BinaryPath     *io.FileWrapper          `json:"BinaryPath"`
+	BinaryPath     *fs.PathWrapper          `json:"BinaryPath"`
 	VirtualMachine *vfConfig.VirtualMachine `json:"VirtualMachine"`
 }
 

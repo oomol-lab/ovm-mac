@@ -5,29 +5,25 @@
 package ignition
 
 import (
-	"bauklotze/pkg/machine/defconfig"
-	"bauklotze/pkg/machine/io"
-	"bauklotze/pkg/machine/vmconfig"
 	"fmt"
 	"path/filepath"
+
+	"bauklotze/pkg/machine/fs"
+	"bauklotze/pkg/machine/vmconfig"
 )
 
-func GenerateIgnScripts(mc *vmconfig.MachineConfig) error {
-	var ignScriptFile = filepath.Join("/tmp", "initfs", "ovm_ign.sh")
+func GenerateScripts(mc *vmconfig.MachineConfig) error {
+	var ignScriptFile = filepath.Join("/", "tmp", "initfs", "ovm_ign.sh")
 	ign := NewIgnitionBuilder(
 		&DynamicIgnitionV3{
-			CodeBuffer: nil,
-			IgnFile: io.FileWrapper{
-				Path: ignScriptFile,
-			},
-			VMType: defconfig.LibKrun,
-			Mounts: mc.Mounts,
-			SSHIdentityPath: io.FileWrapper{
-				Path: mc.SSH.IdentityPath,
-			},
+			CodeBuffer:      nil,
+			File:            fs.NewFile(ignScriptFile),
+			VMType:          vmconfig.KrunKit,
+			Mounts:          mc.Mounts,
+			SSHIdentityPath: fs.NewFile(mc.SSH.PrivateKeyPath),
 		})
 
-	err := ign.GenerateIgnitionConfig([]string{""})
+	err := ign.GenerateConfig()
 	if err != nil {
 		return fmt.Errorf("failed to generate ignition config: %w", err)
 	}
