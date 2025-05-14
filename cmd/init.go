@@ -6,7 +6,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
+	"runtime"
 
 	mylog "bauklotze/pkg/log"
 	"bauklotze/pkg/machine/define"
@@ -32,7 +34,7 @@ var initCmd = cli.Command{
 		&cli.IntFlag{
 			Name:  "cpus",
 			Usage: "Number of CPUs to allocate to the VM",
-			Value: int64(1),
+			Value: int64(math.Min(float64(runtime.NumCPU()-1), 8)),
 		},
 		&cli.IntFlag{
 			Name:  "memory",
@@ -91,7 +93,7 @@ func initMachine(ctx context.Context, cli *cli.Command) error {
 	vmcFile := filepath.Join(vmconfig.Workspace, define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
 
 	var reinit bool
-	mc, err := vmconfig.LoadMachineFromFQPath(vmcFile)
+	mc, err := vmconfig.LoadMachineFromPath(vmcFile)
 	if err != nil {
 		// set reinit flag to true means the vm need to be full reset
 		reinit = true

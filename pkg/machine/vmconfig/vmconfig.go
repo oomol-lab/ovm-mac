@@ -231,9 +231,9 @@ var (
 	ErrInvalidJsonFormat = errors.New("invalid json format")
 )
 
-// LoadMachineFromFQPath loads a machine config from the given path and validates it
+// LoadMachineFromPath loads a machine config from the given path and validates it
 // this function must testable
-func LoadMachineFromFQPath(p string) (*MachineConfig, error) {
+func LoadMachineFromPath(p string) (*MachineConfig, error) {
 	mc := new(MachineConfig)
 	f := io2.NewFile(p)
 

@@ -39,8 +39,6 @@ var startCmd = cli.Command{
 	},
 }
 
-const tickerInterval = 300 * time.Millisecond
-
 func start(parentCtx context.Context, cli *cli.Command) error {
 	opts := &vmconfig.VMOpts{
 		VMName: cli.String("name"),
@@ -51,27 +49,56 @@ func start(parentCtx context.Context, cli *cli.Command) error {
 
 	// We first check the status of the pid passed in via --ppid,
 	// and if it is inactive, exit immediately without running any of the following code
-	isRunning, err := system.IsProcessAliveV4(int(opts.PPID))
+	isRunning, err := system.IsProcessAlive(int(opts.PPID))
 	if !isRunning {
 		return fmt.Errorf("PPID %d exited, possible error: %w", opts.PPID, err)
 	}
 
 	events.NotifyRun(events.LoadMachineConfig)
-	mc, err := vmconfig.LoadMachineFromFQPath(vmcFile)
+	mc, err := vmconfig.LoadMachineFromPath(vmcFile)
 	if err != nil {
 		return fmt.Errorf("load machine config file failed: %w", err)
 	}
 
 	g, ctx := errgroup.WithContext(parentCtx)
-	WatchPPID(g, ctx, opts)
-	ListenSignal(g, ctx)
-	StartRestAPI(g, ctx, mc)
-	startMachine(g, ctx, mc)
 
-	return g.Wait() //nolint:wrapcheck
-}
+	const tickerInterval = 300 * time.Millisecond
+	// WatchPPID
+	g.Go(func() error {
+		ticker := time.NewTicker(tickerInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				isRunning, err := system.IsProcessAlive(int(opts.PPID))
+				if !isRunning {
+					return fmt.Errorf("PPID %d exited, possible error: %w", opts.PPID, err)
+				}
+			}
+		}
+	})
+	// Listen signal
+	g.Go(func() error {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case s := <-sigChan:
+			return fmt.Errorf("catch signal: %v", s.String())
+		}
+	})
 
-func startMachine(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineConfig) {
+	// Start Rest API
+	g.Go(func() error {
+		endPoint := mc.RestAPISocks
+		logrus.Infof("Start rest api service at %q", endPoint)
+		return server.RestService(ctx, mc, endPoint)
+	})
+
+	// start machine
 	g.Go(func() error {
 		var vmp vmconfig.VMProvider
 		switch mc.VMType {
@@ -92,43 +119,6 @@ func startMachine(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineCo
 		// once the parent context is done, the cmd will be killed by the os.Process.Kill(). so the shim.Wait will return immediately.
 		return shim.Wait(registry.GetCmds()...)
 	})
-}
 
-func StartRestAPI(g *errgroup.Group, ctx context.Context, mc *vmconfig.MachineConfig) {
-	g.Go(func() error {
-		endPoint := mc.RestAPISocks
-		logrus.Infof("Start rest api service at %q", endPoint)
-		return server.RestService(ctx, mc, endPoint)
-	})
-}
-
-func ListenSignal(g *errgroup.Group, ctx context.Context) {
-	g.Go(func() error {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case s := <-sigChan:
-			return fmt.Errorf("catch signal: %v", s.String())
-		}
-	})
-}
-
-func WatchPPID(g *errgroup.Group, ctx context.Context, opts *vmconfig.VMOpts) {
-	g.Go(func() error {
-		ticker := time.NewTicker(tickerInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
-				isRunning, err := system.IsProcessAliveV4(int(opts.PPID))
-				if !isRunning {
-					return fmt.Errorf("PPID %d exited, possible error: %w", opts.PPID, err)
-				}
-			}
-		}
-	})
+	return g.Wait() //nolint:wrapcheck
 }
