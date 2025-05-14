@@ -57,10 +57,10 @@ func main() {
 		},
 	}
 
-	NotifyAndExit(app.Run(context.Background(), os.Args))
+	notifyAndExit(app.Run(context.Background(), os.Args))
 }
 
-func NotifyAndExit(err error) {
+func notifyAndExit(err error) {
 	exitCode := 0
 	if err != nil {
 		exitCode = 1
