@@ -187,7 +187,7 @@ func SyncTimeOnWake(ctx context.Context, mc *vmconfig.MachineConfig) error {
 			if activity.Type == notifier.Awake {
 				logrus.Infof("host awake, do time sync for vm")
 				if err := sshService.DoTimeSync(ctx, mc); err != nil {
-					logrus.Errorf("Failed to sync timestamp: %v", err)
+					logrus.Warnf("Failed to sync timestamp: %v", err)
 				}
 			}
 		}

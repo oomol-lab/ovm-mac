@@ -75,7 +75,7 @@ func RaceWait(cmds ...*exec.Cmd) error {
 	}
 
 	<-ctx.Done()
-	return ctx.Err() //nolint:wrapcheck
+	return context.Cause(ctx) //nolint:wrapcheck
 }
 
 // Start starts the VM provider.
