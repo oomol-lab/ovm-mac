@@ -74,10 +74,6 @@ func (l *Stubber) StartSSHAuthService(ctx context.Context, mc *vmconfig.MachineC
 	return machine.StartSSHAuthService(ctx, mc) //nolint:wrapcheck
 }
 
-func (l *Stubber) StartTimeSyncService(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	return machine.SyncTimeOnWake(ctx, mc) //nolint:wrapcheck
-}
-
 func startKrunKit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	if err := system.KillExpectProcNameFromPPIDFile(mc.PIDFiles.KrunKitPidFile, define.KrunkitBinaryName); err != nil {
 		logrus.Warnf("kill krunkit from pid process failed: %v", err)

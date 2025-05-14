@@ -34,8 +34,6 @@ type VMProvider interface { //nolint:interfacebloat
 	InitializeVM(opts *VMOpts) (*MachineConfig, error)
 	StartNetworkProvider(ctx context.Context, mc *MachineConfig) error
 	StartVMProvider(ctx context.Context, mc *MachineConfig) error
-	StartSSHAuthService(ctx context.Context, mc *MachineConfig) error
-	StartTimeSyncService(ctx context.Context, mc *MachineConfig) error
 	GetVMState() *VMState
 }
 

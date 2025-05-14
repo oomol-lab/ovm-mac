@@ -69,14 +69,6 @@ func (l *Stubber) StartVMProvider(ctx context.Context, mc *vmconfig.MachineConfi
 	return nil
 }
 
-func (l *Stubber) StartSSHAuthService(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	return machine.StartSSHAuthService(ctx, mc) //nolint:wrapcheck
-}
-
-func (l *Stubber) StartTimeSyncService(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	return machine.SyncTimeOnWake(ctx, mc) //nolint:wrapcheck
-}
-
 func (l *Stubber) GetVMState() *vmconfig.VMState {
 	return l.VMState
 }

@@ -107,13 +107,13 @@ func Start(parentCtx context.Context, mc *vmconfig.MachineConfig, vmp vmconfig.V
 	// Optional services are placed in separation go routines, these services will not crash the VM even if they fail
 	go func() {
 		logrus.Infof("Start ssh auth service")
-		if err := vmp.StartSSHAuthService(ctx, mc); err != nil {
+		if err := machine.StartSSHAuthService(ctx, mc); err != nil {
 			logrus.Warnf("ssh auth service stop: %v", err)
 		}
 	}()
 
 	go func() {
-		if err := vmp.StartTimeSyncService(ctx, mc); err != nil {
+		if err := machine.SyncTimeOnWake(ctx, mc); err != nil {
 			logrus.Warnf("time sync service stop: %v", err)
 		}
 	}()
