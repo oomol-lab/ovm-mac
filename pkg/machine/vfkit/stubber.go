@@ -15,7 +15,7 @@ import (
 	"bauklotze/pkg/machine"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
-	"bauklotze/pkg/machine/network"
+	"bauklotze/pkg/machine/gvproxy"
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/pty"
 	"bauklotze/pkg/registry"
@@ -46,7 +46,7 @@ func (l *Stubber) VMType() string {
 }
 
 func (l *Stubber) StartNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	return network.StartGvproxy(ctx, mc) //nolint:wrapcheck
+	return gvproxy.Start(ctx, mc) //nolint:wrapcheck
 }
 
 func (l *Stubber) StartVMProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {

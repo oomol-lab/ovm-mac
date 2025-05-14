@@ -32,7 +32,7 @@ var initCmd = cli.Command{
 		&cli.IntFlag{
 			Name:  "cpus",
 			Usage: "Number of CPUs to allocate to the VM",
-			Value: int64(math.Min(float64(runtime.NumCPU()-1), 8)),
+			Value: int64(math.Min(float64(runtime.NumCPU()-1), 8)), //nolint:mnd
 		},
 		&cli.IntFlag{
 			Name:  "memory",

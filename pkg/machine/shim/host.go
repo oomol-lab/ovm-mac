@@ -65,6 +65,7 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 // RaceWait waits for all the commands to finish. Return the first error.
 func RaceWait(cmds ...*exec.Cmd) error {
 	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(context.Canceled)
 
 	for _, cmd := range cmds {
 		go func(c *exec.Cmd) {
@@ -74,7 +75,7 @@ func RaceWait(cmds ...*exec.Cmd) error {
 	}
 
 	<-ctx.Done()
-	return ctx.Err()
+	return ctx.Err() //nolint:wrapcheck
 }
 
 // Start starts the VM provider.

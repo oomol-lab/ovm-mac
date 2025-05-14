@@ -167,7 +167,7 @@ type DataDisk struct {
 // SSHConfig contains remote access information for SSH
 type SSHConfig struct {
 	PrivateKeyPath string `json:"identityPath"   validate:"required"`
-	PublicKeyPath  string `json:"publicKeyPath"      validate:"required"`
+	PublicKeyPath  string `json:"publicKeyPath"  validate:"required"`
 	Port           int    `json:"port"           validate:"required"`
 	RemoteUsername string `json:"remoteUsername" validate:"required"`
 }

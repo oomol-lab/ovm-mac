@@ -15,7 +15,7 @@ import (
 	"bauklotze/pkg/machine"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
-	"bauklotze/pkg/machine/network"
+	"bauklotze/pkg/machine/gvproxy"
 	"bauklotze/pkg/system"
 
 	"bauklotze/pkg/machine/vmconfig"
@@ -43,7 +43,7 @@ func (l *Stubber) VMType() string {
 }
 
 func (l *Stubber) StartNetworkProvider(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	if err := network.StartGvproxy(ctx, mc); err != nil {
+	if err := gvproxy.Start(ctx, mc); err != nil {
 		return fmt.Errorf("failed to start network stack: %w", err)
 	}
 
