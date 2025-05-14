@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"bauklotze/pkg/machine/define"
-	io2 "bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/vmconfig"
 
 	"github.com/oomol-lab/ovm-ssh-agent/v3/pkg/identity"
@@ -43,7 +43,7 @@ func NewSSHAuthService(localSocks, remoteSocks, user, key string, port int) *SSH
 }
 
 func (s *SSHAuthService) StartSSHAuthServiceAndForwardV2(ctx context.Context) error {
-	localSocketFile := io2.NewFile(s.localSocks)
+	localSocketFile := fs.NewFile(s.localSocks)
 	if err := localSocketFile.DeleteInDir(vmconfig.Workspace); err != nil {
 		return fmt.Errorf("failed to delete local ssh auth socks file: %w", err)
 	}

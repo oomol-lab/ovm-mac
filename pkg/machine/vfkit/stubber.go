@@ -16,14 +16,12 @@ import (
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/network"
-	"bauklotze/pkg/machine/ssh/service"
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/pty"
 	"bauklotze/pkg/registry"
 	"bauklotze/pkg/system"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 type Stubber struct {
@@ -72,24 +70,7 @@ func (l *Stubber) StartVMProvider(ctx context.Context, mc *vmconfig.MachineConfi
 }
 
 func (l *Stubber) StartSSHAuthService(ctx context.Context, mc *vmconfig.MachineConfig) error {
-	sshAuthService := service.NewSSHAuthService(
-		mc.SSHAuthSocks.LocalSocks,
-		mc.SSHAuthSocks.RemoteSocks,
-		mc.SSH.RemoteUsername,
-		mc.SSH.PrivateKey,
-		mc.SSH.Port,
-	)
-
-	g, ctx2 := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return sshAuthService.StartSSHAuthServiceAndForwardV2(ctx2)
-	})
-
-	g.Go(func() error {
-		return sshAuthService.StartUnixSocketForward(ctx2)
-	})
-
-	return g.Wait() //nolint:wrapcheck
+	return machine.StartSSHAuthService(ctx, mc) //nolint:wrapcheck
 }
 
 func (l *Stubber) StartTimeSyncService(ctx context.Context, mc *vmconfig.MachineConfig) error {

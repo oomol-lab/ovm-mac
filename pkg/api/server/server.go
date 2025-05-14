@@ -16,7 +16,7 @@ import (
 	"bauklotze/pkg/api/backend"
 	"bauklotze/pkg/api/internal"
 	"bauklotze/pkg/api/types"
-	"bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/vmconfig"
 
 	"github.com/gorilla/mux"
@@ -31,9 +31,9 @@ type APIServer struct {
 func RestService(ctx context.Context, mc *vmconfig.MachineConfig, endPoint string) error {
 	// Set stdin to /dev/null
 	_ = internal.RedirectStdin()
-	// When deleting files, wrap the path in a `&io.PathWrapper` so that the file is safely deleted.
+	// When deleting files, wrap the path in a `&fs.PathWrapper` so that the file is safely deleted.
 	// The Delete(true) operation will ensure that **only files in the workspace are deleted**
-	UDF := io.NewFile(endPoint)
+	UDF := fs.NewFile(endPoint)
 
 	if err := UDF.DeleteInDir(vmconfig.Workspace); err != nil {
 		return fmt.Errorf("failed to delete file %q: %w", UDF.GetPath(), err)

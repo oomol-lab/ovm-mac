@@ -11,15 +11,15 @@ import (
 	"strings"
 	"text/template"
 
-	"bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/volumes"
 
 	"github.com/sirupsen/logrus"
 )
 
 type DynamicIgnitionV3 struct {
-	IgnFile         *io.PathWrapper
-	SSHIdentityPath *io.PathWrapper
+	File            *fs.PathWrapper
+	SSHIdentityPath *fs.PathWrapper
 	VMType          string
 	Mounts          []volumes.Mount
 	TimeZone        string
@@ -27,16 +27,16 @@ type DynamicIgnitionV3 struct {
 }
 
 func (ign *DynamicIgnitionV3) Write() error {
-	err := ign.IgnFile.Delete()
+	err := ign.File.Delete()
 	if err != nil {
 		return fmt.Errorf("failed to delete ignition file: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(ign.IgnFile.GetPath()), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(ign.File.GetPath()), os.ModePerm); err != nil {
 		return fmt.Errorf("failed to create directories for ignition file: %w", err)
 	}
 
-	file, err := os.Create(ign.IgnFile.GetPath())
+	file, err := os.Create(ign.File.GetPath())
 	if err != nil {
 		return fmt.Errorf("failed to create ignition file: %w", err)
 	}
@@ -45,11 +45,11 @@ func (ign *DynamicIgnitionV3) Write() error {
 	if err != nil {
 		return fmt.Errorf("failed to write ignition file: %w", err)
 	}
-	logrus.Infof("Ignition file written to %s", ign.IgnFile.GetPath())
+	logrus.Infof("Ignition file written to %s", ign.File.GetPath())
 	return nil
 }
 
-func (ign *DynamicIgnitionV3) GenerateIgnitionConfig() error {
+func (ign *DynamicIgnitionV3) GenerateConfig() error {
 	ign.CodeBuffer = new(bytes.Buffer)
 
 	err := ign.GenerateMountScripts()
@@ -96,7 +96,7 @@ func (ign *DynamicIgnitionV3) GenerateMountScripts() error {
 	t := template.Must(template.New("VirtioFsMountScriptCodes").Parse(VirtioFSMountScript))
 	mybuff := new(bytes.Buffer)
 	for _, vol := range ign.Mounts {
-		if vol.Type == volumes.VirtIOFS.String() && !strings.HasPrefix(vol.Target, filepath.Dir(ign.IgnFile.GetPath())) {
+		if vol.Type == volumes.VirtIOFS.String() && !strings.HasPrefix(vol.Target, filepath.Dir(ign.File.GetPath())) {
 			data := struct {
 				FsType string
 				Source string

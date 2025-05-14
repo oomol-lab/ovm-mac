@@ -60,9 +60,9 @@ func start(parentCtx context.Context, cli *cli.Command) error {
 
 	g, ctx := errgroup.WithContext(parentCtx)
 
-	const tickerInterval = 300 * time.Millisecond
 	// WatchPPID
 	g.Go(func() error {
+		const tickerInterval = 300 * time.Millisecond
 		ticker := time.NewTicker(tickerInterval)
 		defer ticker.Stop()
 		for {
@@ -115,7 +115,7 @@ func start(parentCtx context.Context, cli *cli.Command) error {
 		// NOTE:
 		// shim.Wait do not need to support context.
 		// once the parent context is done, the cmd will be killed by the os.Process.Kill(). so the shim.Wait will return immediately.
-		return shim.Wait(registry.GetCmds()...)
+		return shim.RaceWait(registry.GetCmds()...)
 	})
 
 	return g.Wait() //nolint:wrapcheck

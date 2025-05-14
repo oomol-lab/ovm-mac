@@ -10,9 +10,8 @@ const (
 )
 
 func GetVMM() string {
-	provider := KrunKit
 	if runtime.GOARCH == "amd64" {
-		provider = VFkit
+		return VFkit
 	}
-	return provider
+	return KrunKit
 }

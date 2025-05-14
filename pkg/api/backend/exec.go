@@ -25,7 +25,7 @@ import (
 )
 
 func exec(ctx context.Context, mc *vmconfig.MachineConfig, command string, outCh *infinity.Channel[string], errCh chan string) error {
-	key, err := os.ReadFile(mc.SSH.PrivateKey)
+	key, err := os.ReadFile(mc.SSH.PrivateKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to read private key: %w", err)
 	}

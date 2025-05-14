@@ -11,11 +11,9 @@ import (
 	"bauklotze/pkg/machine/define"
 )
 
-const tcp = "tcp"
-
 // GetFree returns a free TCP port
 func GetFree() (int, error) {
-	l, err := net.Listen(tcp, fmt.Sprintf("%s:%d", define.LocalHostURL, 0))
+	l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", define.LocalHostURL, 0))
 	if err != nil {
 		return 0, fmt.Errorf("unable to get free TCP port: %w", err)
 	}

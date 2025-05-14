@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"sync"
 
 	"bauklotze/pkg/decompress"
 	"bauklotze/pkg/machine"
@@ -46,7 +45,7 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 
 	if mc.Bootable.Version != opts.BootVersion {
 		logrus.Infof("Bootable image version is not match, try to update boot image")
-		if err := decompress.UncompressZstFile(opts.BootImage, mc.Bootable.Path); err != nil {
+		if err := decompress.UncompressZSTD(opts.BootImage, mc.Bootable.Path); err != nil {
 			return nil, fmt.Errorf("update boot image failed: %w", err)
 		}
 		mc.Bootable.Version = opts.BootVersion
@@ -63,28 +62,19 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 	return mc, nil
 }
 
-// Wait waits for all the commands to finish. Return the first error.
-func Wait(cmds ...*exec.Cmd) error {
-	var (
-		wg      sync.WaitGroup
-		errChan = make(chan error, 1)
-	)
-
-	wg.Add(len(cmds))
+// RaceWait waits for all the commands to finish. Return the first error.
+func RaceWait(cmds ...*exec.Cmd) error {
+	ctx, cancel := context.WithCancelCause(context.Background())
 
 	for _, cmd := range cmds {
 		go func(c *exec.Cmd) {
-			defer wg.Done()
-			errChan <- fmt.Errorf("%q got exit with: %w", c.Args, c.Wait())
+			err := c.Wait()
+			cancel(fmt.Errorf("%q got exit with: %w", c.Args, err))
 		}(cmd)
 	}
 
-	go func() {
-		wg.Wait()
-		defer close(errChan)
-	}()
-
-	return <-errChan
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 // Start starts the VM provider.

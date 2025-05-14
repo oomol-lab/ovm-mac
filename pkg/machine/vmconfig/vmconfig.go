@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 
 	"bauklotze/pkg/machine/define"
-	io2 "bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 
 	"bauklotze/pkg/machine/volumes"
 	"bauklotze/pkg/port"
@@ -40,7 +40,7 @@ type VMProvider interface { //nolint:interfacebloat
 }
 
 func (mc *MachineConfig) PodmanAPISocketHost() string {
-	// io.NewDir(mc.Dirs.SocksDir).AppendFile("podman-api.sock").
+	// fs.NewDir(mc.Dirs.SocksDir).AppendFile("podman-api.sock").
 	return mc.Dirs.SocksDir + "podman-api.sock"
 }
 
@@ -66,19 +66,19 @@ func (mc *MachineConfig) MakeDirs() error {
 }
 
 func (mc *MachineConfig) CreateSSHKey() error {
-	privateKeyFile := io2.NewFile(mc.SSH.PrivateKey)
+	privateKeyFile := fs.NewFile(mc.SSH.PrivateKeyPath)
 	if err := privateKeyFile.DeleteInDir(Workspace); err != nil {
 		return fmt.Errorf("delete ssh private key err: %w", err)
 	}
 
-	publicKeyFile := io2.NewFile(fmt.Sprintf("%s.pub", mc.SSH.PrivateKey))
+	publicKeyFile := fs.NewFile(fmt.Sprintf("%s.pub", mc.SSH.PrivateKeyPath))
 
 	if err := publicKeyFile.DeleteInDir(Workspace); err != nil {
 		return fmt.Errorf("delete ssh public key err: %w", err)
 	}
 
 	var sshCommand = []string{"ssh-keygen", "-N", "", "-t", "ed25519", "-f"}
-	args := append(append([]string{}, sshCommand[1:]...), mc.SSH.PrivateKey)
+	args := append(append([]string{}, sshCommand[1:]...), mc.SSH.PrivateKeyPath)
 	cmd := exec.Command(sshCommand[0], args...)
 	logrus.Infof("full cmdline: %q", cmd.Args)
 
@@ -88,7 +88,7 @@ func (mc *MachineConfig) CreateSSHKey() error {
 // GetNetworkStackEndpoint return the unix socket path for network stack endpoint which provided by gvproxy.
 // the NetworkStackEndpoint provides the network stack for vm
 func (mc *MachineConfig) GetNetworkStackEndpoint() string {
-	return io2.NewFile(mc.Dirs.SocksDir).AppendFile(define.GvProxyEndPoint).GetPath()
+	return fs.NewFile(mc.Dirs.SocksDir).AppendFile(define.GvProxyEndPoint).GetPath()
 }
 
 func (mc *MachineConfig) GetSSHPort() error {
@@ -168,8 +168,8 @@ type DataDisk struct {
 
 // SSHConfig contains remote access information for SSH
 type SSHConfig struct {
-	PrivateKey     string `json:"identityPath"   validate:"required"`
-	PublicKey      string `json:"publicKey"      validate:"required"`
+	PrivateKeyPath string `json:"identityPath"   validate:"required"`
+	PublicKeyPath  string `json:"publicKeyPath"      validate:"required"`
 	Port           int    `json:"port"           validate:"required"`
 	RemoteUsername string `json:"remoteUsername" validate:"required"`
 }
@@ -194,8 +194,8 @@ func NewMachineConfig(opts *VMOpts) *MachineConfig {
 	}
 
 	mc.SSH = SSHConfig{
-		PrivateKey:     filepath.Join(mc.Dirs.DataDir, define.SSHKey),
-		PublicKey:      filepath.Join(mc.Dirs.DataDir, fmt.Sprintf("%s.pub", define.SSHKey)),
+		PrivateKeyPath: filepath.Join(mc.Dirs.DataDir, define.SSHKey),
+		PublicKeyPath:  filepath.Join(mc.Dirs.DataDir, fmt.Sprintf("%s.pub", define.SSHKey)),
 		Port:           define.DefaultSSHPort,
 		RemoteUsername: define.DefaultUserInVM,
 	}
@@ -235,7 +235,7 @@ var (
 // this function must testable
 func LoadMachineFromPath(p string) (*MachineConfig, error) {
 	mc := new(MachineConfig)
-	f := io2.NewFile(p)
+	f := fs.NewFile(p)
 
 	b, err := f.Read()
 	if err != nil {

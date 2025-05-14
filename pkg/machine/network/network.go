@@ -14,7 +14,7 @@ import (
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
-	io2 "bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/vmconfig"
 	"bauklotze/pkg/registry"
 	"bauklotze/pkg/system"
@@ -46,11 +46,11 @@ func StartGvproxy(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	gvpCmd.AddForwardSock(mc.PodmanSocks.InHost)
 	gvpCmd.AddForwardDest(mc.PodmanSocks.InGuest)
 	gvpCmd.AddForwardUser(mc.SSH.RemoteUsername)
-	gvpCmd.AddForwardIdentity(mc.SSH.PrivateKey)
+	gvpCmd.AddForwardIdentity(mc.SSH.PrivateKeyPath)
 	gvpCmd.PidFile = mc.PIDFiles.GvproxyPidFile
 
 	// gvproxy endpoint, which provide network backend for vfkit/krunkit
-	gvpEndPoint := io2.NewFile(mc.GetNetworkStackEndpoint())
+	gvpEndPoint := fs.NewFile(mc.GetNetworkStackEndpoint())
 
 	if err := gvpEndPoint.DeleteInDir(vmconfig.Workspace); err != nil {
 		return fmt.Errorf("unable to remove gvproxy endpoint file: %w", err)
@@ -58,7 +58,7 @@ func StartGvproxy(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	gvpCmd.AddVfkitSocket(fmt.Sprintf("unixgram://%s", gvpEndPoint.GetPath()))
 
 	if os.Getenv("OVM_GVPROXY_DEBUG") == "true" {
-		logrus.Warn("gvproxy running in debug mode")
+		logrus.Infof("gvproxy running in debug mode")
 		gvpCmd.Debug = true
 	}
 
@@ -70,7 +70,7 @@ func StartGvproxy(ctx context.Context, mc *vmconfig.MachineConfig) error {
 		Setpgid: true,
 	}
 
-	logrus.Infof("GVPROXY FULL CMDLINE: %q", cmd.Args)
+	logrus.Infof("gvproxy full cmdline: %q", cmd.Args)
 	events.NotifyRun(events.StartGvProxy)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("unable to execute: %q: %w", cmd.Args, err)

@@ -37,7 +37,7 @@ var initCmd = cli.Command{
 		&cli.IntFlag{
 			Name:  "memory",
 			Usage: "Amount of memory (in MB) to allocate to the VM",
-			Value: 512, //nolint:mnd
+			Value: 4096, //nolint:mnd
 		},
 		&cli.StringSliceFlag{
 			Name:    "volume",

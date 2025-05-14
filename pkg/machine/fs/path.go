@@ -1,7 +1,7 @@
 //  SPDX-FileCopyrightText: 2024-2025 OOMOL, Inc. <https://www.oomol.com>
 //  SPDX-License-Identifier: MPL-2.0
 
-package io
+package fs
 
 import (
 	"errors"
@@ -49,7 +49,7 @@ func (m *PathWrapper) DeleteInDir(dir string) error {
 	if !strings.HasPrefix(m.path, dir) {
 		return fmt.Errorf("target file %s is not in dir %s", m.path, dir)
 	}
-	
+
 	return m.Delete()
 }
 
@@ -88,20 +88,21 @@ func (m *PathWrapper) DiscardBytesAtBegin(n strongunits.MiB) error {
 	logrus.Infof("fileInfo.Size: %d, expact size: %d", fileInfo.Size(), n.ToBytes())
 	if fileInfo.Size() <= offset {
 		return nil
-	} else {
-		file, _ := os.OpenFile(m.path, os.O_RDONLY, 0) // open the file in read-only mode
-		defer file.Close()                             //nolint:errcheck
-
-		_, _ = file.Seek(offset, io.SeekStart)
-		tempFile, _ := os.CreateTemp("", "trimmed-ovm-log.txt")
-		defer tempFile.Close() //nolint:errcheck
-
-		_, _ = io.Copy(tempFile, file)
-		_ = file.Close()
-		_ = tempFile.Close()
-
-		_ = os.Rename(tempFile.Name(), m.path)
 	}
+	
+	file, _ := os.OpenFile(m.path, os.O_RDONLY, 0) // open the file in read-only mode
+	defer file.Close()                             //nolint:errcheck
+
+	_, _ = file.Seek(offset, io.SeekStart)
+	tempFile, _ := os.CreateTemp("", "trimmed-ovm-log.txt")
+	defer tempFile.Close() //nolint:errcheck
+
+	_, _ = io.Copy(tempFile, file)
+	_ = file.Close()
+	_ = tempFile.Close()
+
+	_ = os.Rename(tempFile.Name(), m.path)
+
 	return nil
 }
 

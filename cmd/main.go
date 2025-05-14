@@ -10,7 +10,7 @@ import (
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
-	"bauklotze/pkg/machine/io"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/vmconfig"
 
 	"github.com/sirupsen/logrus"
@@ -88,7 +88,7 @@ func loggerSetup(outType string, workspace string) {
 	logrus.SetOutput(os.Stderr)
 
 	if outType == define.LogOutFile {
-		logFile := io.NewFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+		logFile := fs.NewFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
 		if logFile.IsExist() {
 			logrus.Infof("Log file %q already exists, discarding the first 5 Mib", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
 			if err := logFile.DiscardBytesAtBegin(MaxSizeInMB); err != nil {

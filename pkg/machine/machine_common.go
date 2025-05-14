@@ -23,6 +23,7 @@ import (
 	vfConfig "github.com/crc-org/vfkit/pkg/config"
 	"github.com/prashantgupta24/mac-sleep-notifier/notifier"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 const defaultPingTimeout = 5 * time.Second
@@ -104,7 +105,7 @@ func InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	logrus.Infof("Decompress %q to %q", opts.BootImage, mc.Bootable.Path)
 
 	events.NotifyInit(events.ExtractBootImage)
-	if err := decompress.UncompressZstFile(opts.BootImage, mc.Bootable.Path); err != nil {
+	if err := decompress.UncompressZSTD(opts.BootImage, mc.Bootable.Path); err != nil {
 		return nil, fmt.Errorf("initialize vm failed: %w", err)
 	}
 
@@ -168,7 +169,7 @@ func CreateDynamicConfigure(mc *vmconfig.MachineConfig) (*vfConfig.VirtualMachin
 
 	dynamicVMConfig.Devices = append(dynamicVMConfig.Devices, defaultDevices...)
 
-	if err = ignition.GenerateIgnScripts(mc); err != nil {
+	if err = ignition.GenerateScripts(mc); err != nil {
 		return nil, fmt.Errorf("failed to generate ignition scripts: %w", err)
 	}
 
@@ -218,4 +219,25 @@ func CreateAndResizeDisk(f string, sizeInGB int64) error {
 	}
 
 	return nil
+}
+
+func StartSSHAuthService(ctx context.Context, mc *vmconfig.MachineConfig) error {
+	sshAuthService := sshService.NewSSHAuthService(
+		mc.SSHAuthSocks.LocalSocks,
+		mc.SSHAuthSocks.RemoteSocks,
+		mc.SSH.RemoteUsername,
+		mc.SSH.PrivateKeyPath,
+		mc.SSH.Port,
+	)
+
+	g, ctx2 := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return sshAuthService.StartSSHAuthServiceAndForwardV2(ctx2)
+	})
+
+	g.Go(func() error {
+		return sshAuthService.StartUnixSocketForward(ctx2)
+	})
+
+	return g.Wait() //nolint:wrapcheck
 }
