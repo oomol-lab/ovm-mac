@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	mylog "bauklotze/pkg/log"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/shim"
@@ -26,7 +25,6 @@ var initCmd = cli.Command{
 	Action:                    initMachine,
 	Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
 		events.CurrentStage = events.Init
-		mylog.Setup(command.String("log-out"), command.String("workspace"))
 		return ctx, nil
 	},
 

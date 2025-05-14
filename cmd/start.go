@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"bauklotze/pkg/api/server"
-	mylog "bauklotze/pkg/log"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/krunkit"
@@ -34,7 +33,6 @@ var startCmd = cli.Command{
 	Action: start,
 	Before: func(ctx context.Context, cli *cli.Command) (context.Context, error) {
 		events.CurrentStage = events.Run
-		mylog.Setup(cli.String("log-out"), cli.String("workspace"))
 		return ctx, nil
 	},
 }

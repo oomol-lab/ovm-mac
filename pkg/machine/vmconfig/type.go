@@ -2,8 +2,6 @@ package vmconfig
 
 import (
 	"runtime"
-
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -16,6 +14,5 @@ func GetVMM() string {
 	if runtime.GOARCH == "amd64" {
 		provider = VFkit
 	}
-	logrus.Info("vm provider is: ", provider)
 	return provider
 }
