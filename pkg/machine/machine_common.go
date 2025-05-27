@@ -221,6 +221,7 @@ func CreateAndResizeDisk(f string, sizeInGB int64, force bool) error {
 		return nil
 	}
 
+	logrus.Infof("creating data disk %q and resize to %d GB", f, sizeInGB)
 	file, err := os.OpenFile(f, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to create disk: %q, %w", f, err)
