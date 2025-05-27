@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -51,8 +52,10 @@ func main() {
 		},
 		Before: func(ctx context.Context, command *cli.Command) (context.Context, error) {
 			events.SetReportURL(command.String("report-url"))
+			// a GLOB var that stores the workspace value, this var only need be initialized once
 			vmconfig.Workspace = command.String("workspace")
-			loggerSetup(command.String("log-out"), command.String("workspace"))
+			logFile := filepath.Join(vmconfig.Workspace, command.String("name"), define.LogPrefixDir, define.LogFileName)
+			loggerSetup(command.String("log-out"), logFile)
 			return ctx, nil
 		},
 	}
@@ -76,7 +79,7 @@ const MaxSizeInMB = 5
 // loggerSetup outType: file, stdout
 // if outType is file, workspace is required
 // if outType is terminal, workspace is not required, all output will be sent to Terminal's stdout/stderr
-func loggerSetup(outType string, workspace string) {
+func loggerSetup(outType string, f string) {
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:   true,
@@ -88,19 +91,28 @@ func loggerSetup(outType string, workspace string) {
 	logrus.SetOutput(os.Stderr)
 
 	if outType == define.LogOutFile {
-		logFile := fs.NewFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+		logFile := fs.NewFile(f)
 		if logFile.IsExist() {
-			logrus.Infof("Log file %q already exists, discarding the first 5 Mib", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
+			logrus.Infof("Log file %q already exists, discarding the first 5 Mib", logFile.GetPath())
 			if err := logFile.DiscardBytesAtBegin(MaxSizeInMB); err != nil {
 				logrus.Warnf("failed to discard log file: %q", err)
 			}
 		}
 
-		logrus.Infof("Save log to %q", filepath.Join(workspace, define.LogPrefixDir, define.LogFileName))
-		if fd, err := os.OpenFile(filepath.Join(workspace, define.LogPrefixDir, define.LogFileName), os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm); err == nil {
-			os.Stdout = fd
-			os.Stderr = fd
-			logrus.SetOutput(fd)
+		logrus.Infof("Save log to %q", logFile.GetPath())
+		if err := logFile.MakeBaseDir(); err != nil {
+			logrus.Warnf("failed to create log directory: %q", err)
+			return
 		}
+
+		fd, err := os.OpenFile(logFile.GetPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			logrus.Warnf("failed to open log file: %q", err)
+			return
+		}
+
+		os.Stdout = fd
+		os.Stderr = fd
+		logrus.SetOutput(fd)
 	}
 }

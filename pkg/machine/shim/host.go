@@ -53,7 +53,7 @@ func Update(mc *vmconfig.MachineConfig, opts *vmconfig.VMOpts) (*vmconfig.Machin
 
 	if mc.DataDisk.Version != opts.DataVersion {
 		logrus.Infof("Data image version is not match, try to update data image")
-		if err := machine.CreateAndResizeDisk(mc.DataDisk.Path, define.DataDiskSizeInGB); err != nil {
+		if err := machine.CreateAndResizeDisk(mc.DataDisk.Path, define.DataDiskSizeInGB, true); err != nil {
 			return nil, fmt.Errorf("update data image failed: %w", err)
 		}
 		mc.DataDisk.Version = opts.DataVersion

@@ -3,6 +3,12 @@
 
 package vmconfig
 
+import (
+	"path/filepath"
+
+	"bauklotze/pkg/machine/define"
+)
+
 type ResourceConfig struct {
 	// CPUs to be assigned to the VM
 	CPUs int64 `json:"cpus,omitempty"`
@@ -25,4 +31,8 @@ type VMOpts struct {
 	ReInit      bool
 	ReportURL   string
 	VMM         string
+}
+
+func (opts *VMOpts) GetVMConfigPath() string {
+	return filepath.Join(opts.Workspace, opts.VMName, define.ConfigPrefixDir, define.VMConfigJson)
 }

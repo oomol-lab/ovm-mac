@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"bauklotze/pkg/api/server"
-	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/krunkit"
 	"bauklotze/pkg/machine/shim"
@@ -39,11 +37,12 @@ var startCmd = cli.Command{
 
 func start(parentCtx context.Context, cli *cli.Command) error {
 	opts := &vmconfig.VMOpts{
-		VMName: cli.String("name"),
-		PPID:   cli.Int("ppid"),
+		Workspace: cli.String("workspace"),
+		VMName:    cli.String("name"),
+		PPID:      cli.Int("ppid"),
 	}
 
-	vmcFile := filepath.Join(vmconfig.Workspace, define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
+	vmcFile := opts.GetVMConfigPath()
 
 	// We first check the status of the pid passed in via --ppid,
 	// and if it is inactive, exit immediately without running any of the following code

@@ -14,6 +14,7 @@ import (
 	"bauklotze/pkg/httpclient"
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/ignition"
 	sshService "bauklotze/pkg/machine/ssh/service"
 	"bauklotze/pkg/machine/vmconfig"
@@ -110,7 +111,7 @@ func InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	}
 
 	logrus.Infof("create data disk image %q with sizeInGb %d", mc.DataDisk.Path, define.DataDiskSizeInGB)
-	if err := CreateAndResizeDisk(mc.DataDisk.Path, define.DataDiskSizeInGB); err != nil {
+	if err := CreateAndResizeDisk(mc.DataDisk.Path, define.DataDiskSizeInGB, false); err != nil {
 		return nil, fmt.Errorf("initialize vm failed: %w", err)
 	}
 
@@ -207,7 +208,19 @@ func VirtIOFsToVFKitVirtIODevice(mounts []volumes.Mount) ([]vfConfig.VirtioDevic
 }
 
 // CreateAndResizeDisk create a disk file with sizeInGB, and truncate it to sizeInGB.
-func CreateAndResizeDisk(f string, sizeInGB int64) error {
+func CreateAndResizeDisk(f string, sizeInGB int64, force bool) error {
+	disk := fs.NewFile(f)
+	if force {
+		if err := disk.Delete(); err != nil {
+			return fmt.Errorf("failed to delete %q: %w", f, err)
+		}
+	}
+
+	if disk.IsExist() {
+		logrus.Infof("data disk %q already exists, skip re-create data disk", f)
+		return nil
+	}
+
 	file, err := os.OpenFile(f, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to create disk: %q, %w", f, err)

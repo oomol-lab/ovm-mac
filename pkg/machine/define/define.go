@@ -45,6 +45,7 @@ const (
 
 	IgnMnt               = "/tmp/initfs:/tmp/initfs"
 	SSHAuthLocalSockName = "oo-ssh-agent-host.sock"
+	VMConfigJson         = "config.json"
 
 	LogOutFile     = "file"
 	LogOutTerminal = "terminal"

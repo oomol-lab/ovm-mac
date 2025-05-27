@@ -7,14 +7,17 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"runtime"
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/events"
+	"bauklotze/pkg/machine/fs"
 	"bauklotze/pkg/machine/shim"
 	"bauklotze/pkg/machine/vmconfig"
 
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v3"
 )
 
@@ -85,10 +88,12 @@ func initMachine(ctx context.Context, cli *cli.Command) error {
 		VMM:         cli.String("vmm"),
 	}
 
+	migrateData(opts)
+
 	// add a default mount point that store generated ignition scripts
 	opts.Volumes = append(opts.Volumes, define.IgnMnt)
 
-	vmcFile := filepath.Join(vmconfig.Workspace, define.ConfigPrefixDir, fmt.Sprintf("%s.json", opts.VMName))
+	vmcFile := opts.GetVMConfigPath()
 
 	var reinit bool
 	mc, err := vmconfig.LoadMachineFromPath(vmcFile)
@@ -116,4 +121,49 @@ func initMachine(ctx context.Context, cli *cli.Command) error {
 	events.NotifyInit(events.InitSuccess)
 
 	return nil
+}
+
+func migrateData(opts *vmconfig.VMOpts) {
+	if err := os.RemoveAll(filepath.Join(opts.Workspace, "logs")); err != nil {
+		logrus.Errorf("remove logs failed: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(opts.Workspace, "pids")); err != nil {
+		logrus.Errorf("remove pids failed: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(opts.Workspace, "config")); err != nil {
+		logrus.Errorf("remove pids failed: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(opts.Workspace, "socks")); err != nil {
+		logrus.Errorf("remove pids failed: %v", err)
+	}
+
+	f := filepath.Join(opts.Workspace, "data", "libkrun", "default-arm64-data.raw")
+	if runtime.GOARCH == "amd64" {
+		f = filepath.Join(opts.Workspace, "data", "vfkit", "default-amd64-data.raw")
+	}
+	oldDataDiskFile := fs.NewFile(f)
+
+	f = filepath.Join(opts.Workspace, opts.VMName, define.DataPrefixDir, "data.img")
+	newDataDiskFile := fs.NewFile(f)
+
+	if !oldDataDiskFile.IsExist() {
+		logrus.Info("old data disk does not exist, no need to migrate")
+		return
+	}
+
+	logrus.Infof("Move old data disk %q file to %q", oldDataDiskFile.GetPath(), newDataDiskFile.GetPath())
+	if err := os.MkdirAll(filepath.Dir(newDataDiskFile.GetPath()), 0755); err != nil {
+		logrus.Errorf("mkdir failed: %v", err)
+	}
+
+	if err := os.Rename(oldDataDiskFile.GetPath(), newDataDiskFile.GetPath()); err != nil {
+		logrus.Warnf("move old data disk file failed: %v", err)
+	}
+
+	if err := os.RemoveAll(filepath.Join(opts.Workspace, "data")); err != nil {
+		logrus.Errorf("remove data failed: %v", err)
+	}
 }

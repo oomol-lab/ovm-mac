@@ -28,7 +28,9 @@ type VMState struct {
 	PodmanReady bool
 }
 
-var Workspace string
+var (
+	Workspace string
+)
 
 type VMProvider interface { //nolint:interfacebloat
 	InitializeVM(opts *VMOpts) (*MachineConfig, error)
@@ -178,13 +180,13 @@ func NewMachineConfig(opts *VMOpts) *MachineConfig {
 	mc.VMType = opts.VMM
 	mc.VMName = opts.VMName
 
-	mc.Dirs.ConfigDir = filepath.Join(Workspace, define.ConfigPrefixDir)
-	mc.Dirs.DataDir = filepath.Join(Workspace, define.DataPrefixDir)
-	mc.Dirs.LogsDir = filepath.Join(Workspace, define.LogPrefixDir)
-	mc.Dirs.SocksDir = filepath.Join(Workspace, define.SocksPrefixDir)
-	mc.Dirs.PidsDir = filepath.Join(Workspace, define.PidsPrefixDir)
+	mc.Dirs.ConfigDir = filepath.Join(Workspace, opts.VMName, define.ConfigPrefixDir)
+	mc.Dirs.DataDir = filepath.Join(Workspace, opts.VMName, define.DataPrefixDir)
+	mc.Dirs.LogsDir = filepath.Join(Workspace, opts.VMName, define.LogPrefixDir)
+	mc.Dirs.SocksDir = filepath.Join(Workspace, opts.VMName, define.SocksPrefixDir)
+	mc.Dirs.PidsDir = filepath.Join(Workspace, opts.VMName, define.PidsPrefixDir)
 
-	mc.ConfigFile = filepath.Join(mc.Dirs.ConfigDir, fmt.Sprintf("%s.json", opts.VMName))
+	mc.ConfigFile = filepath.Join(mc.Dirs.ConfigDir, define.VMConfigJson)
 	mc.Resources = ResourceConfig{
 		CPUs:           opts.CPUs,
 		DataDiskSizeGB: define.DataDiskSizeInGB,
