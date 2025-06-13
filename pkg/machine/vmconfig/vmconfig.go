@@ -273,18 +273,20 @@ func (mc *MachineConfig) getBinDir() (string, error) {
 	binDirLocker.Lock()
 	defer binDirLocker.Unlock()
 
-	if binDir == "" {
-		execPath, err := os.Executable()
-		if err != nil {
-			return "", fmt.Errorf("unable to get executable path: %w", err)
-		}
-
-		execPath, err = filepath.EvalSymlinks(execPath)
-		if err != nil {
-			return "", fmt.Errorf("unable to eval symlinks: %w", err)
-		}
-		binDir = filepath.Dir(filepath.Dir(execPath))
+	if binDir != "" {
+		return binDir, nil
 	}
+	
+	execPath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("unable to get executable path: %w", err)
+	}
+
+	execPath, err = filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return "", fmt.Errorf("unable to eval symlinks: %w", err)
+	}
+	binDir = filepath.Dir(filepath.Dir(execPath))
 
 	return binDir, nil
 }
