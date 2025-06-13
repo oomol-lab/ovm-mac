@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -29,16 +28,11 @@ func Start(ctx context.Context, mc *vmconfig.MachineConfig) error {
 		logrus.Warnf("kill old gvproxy from pid process failed: %v", err)
 	}
 
-	execPath, err := os.Executable()
+	gvpBin, err := mc.GetGVProxyBin()
 	if err != nil {
-		return fmt.Errorf("unable to get executable path: %w", err)
+		return fmt.Errorf("unable to get gvproxy binary path: %w", err)
 	}
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return fmt.Errorf("unable to eval symlinks: %w", err)
-	}
-
-	gvpBin := filepath.Join(filepath.Dir(filepath.Dir(execPath)), define.Libexec, define.GvProxyBinaryName)
+	
 	gvpCmd := gvproxyTypes.NewGvproxyCommand()
 	gvpCmd.SSHPort = mc.SSH.Port
 	// gvproxy listen a local socks file as Podman API socks (PodmanSocks.InHost)

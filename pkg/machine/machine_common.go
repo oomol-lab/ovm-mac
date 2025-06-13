@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"bauklotze/pkg/decompress"
@@ -81,19 +80,6 @@ func InitializeVM(opts *vmconfig.VMOpts) (*vmconfig.MachineConfig, error) {
 	if err := mc.GetSSHPort(); err != nil {
 		return nil, fmt.Errorf("failed to get ssh port: %w", err)
 	}
-
-	execPath, err := os.Executable()
-	if err != nil {
-		return nil, fmt.Errorf("unable to get executable path: %w", err)
-	}
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return nil, fmt.Errorf("unable to eval symlinks: %w", err)
-	}
-
-	mc.KrunKitBin = filepath.Join(filepath.Dir(filepath.Dir(execPath)), define.Libexec, define.KrunkitBinaryName)
-	mc.VFKitBin = filepath.Join(filepath.Dir(filepath.Dir(execPath)), define.Libexec, define.VfkitBinaryName)
-	mc.GVProxyBin = filepath.Join(filepath.Dir(filepath.Dir(execPath)), define.Libexec, define.GvProxyBinaryName)
 
 	if err := mc.MakeDirs(); err != nil {
 		return nil, fmt.Errorf("make work space err: %w", err)
@@ -178,7 +164,7 @@ func CreateDynamicConfigure(mc *vmconfig.MachineConfig) (*vfConfig.VirtualMachin
 }
 
 // SyncTimeOnWake start Sleep Notifier and dispatch tasks
-func SyncTimeOnWake(ctx context.Context, mc *vmconfig.MachineConfig) error {
+func SyncTimeOnWake(ctx context.Context, mc *vmconfig.MachineConfig) error { //nolint: staticcheck
 	notifierCh := notifier.GetInstance().Start()
 	for {
 		select {

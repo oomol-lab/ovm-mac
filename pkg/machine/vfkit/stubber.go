@@ -83,7 +83,11 @@ func startVFkit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 		return fmt.Errorf("failed to create dynamic machine configure: %w", err)
 	}
 
-	cmd, err := vmc.Cmd(mc.VFKitBin)
+	vfkitBin, err := mc.GetVfkitBin()
+	if err != nil {
+		return fmt.Errorf("failed to get vfkit binary: %w", err)
+	}
+	cmd, err := vmc.Cmd(vfkitBin)
 	if err != nil {
 		return fmt.Errorf("failed to create krunkit command: %w", err)
 	}
@@ -91,7 +95,7 @@ func startVFkit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	cmd.Args = append(cmd.Args, "--log-level", "info")
 	cmd.Args = append(cmd.Args, "--device", "virtio-serial,stdio")
 
-	cmd = exec.CommandContext(ctx, mc.VFKitBin, cmd.Args[1:]...)
+	cmd = exec.CommandContext(ctx, vfkitBin, cmd.Args[1:]...)
 
 	logrus.Infof("full cmdline: %q", cmd.Args)
 

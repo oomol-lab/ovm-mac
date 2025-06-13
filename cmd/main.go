@@ -105,7 +105,7 @@ func loggerSetup(outType string, f string) {
 			return
 		}
 
-		fd, err := os.OpenFile(logFile.GetPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		fd, err := os.OpenFile(logFile.GetPath(), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666) //nolint:mnd
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			logrus.Warnf("failed to open log file: %q", err)
 			return

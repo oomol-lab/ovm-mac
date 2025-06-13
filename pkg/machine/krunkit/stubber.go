@@ -84,14 +84,19 @@ func startKrunKit(ctx context.Context, mc *vmconfig.MachineConfig) error {
 		return fmt.Errorf("failed to create dynamic machine configure: %w", err)
 	}
 
-	cmd, err := vmc.Cmd(mc.KrunKitBin)
+	krunkitBin, err := mc.GetKrunkitBin()
+	if err != nil {
+		return fmt.Errorf("failed to get krunkit binary: %w", err)
+	}
+
+	cmd, err := vmc.Cmd(krunkitBin)
 	if err != nil {
 		return fmt.Errorf("failed to create krunkit command: %w", err)
 	}
 
 	cmd.Args = append(cmd.Args, "--krun-log-level", "3")
 
-	cmd = exec.CommandContext(ctx, mc.KrunKitBin, cmd.Args[1:]...)
+	cmd = exec.CommandContext(ctx, krunkitBin, cmd.Args[1:]...)
 
 	logrus.Infof("full cmdline: %q", cmd.Args)
 
