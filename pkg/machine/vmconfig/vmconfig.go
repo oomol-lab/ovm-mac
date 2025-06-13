@@ -30,6 +30,7 @@ type VMState struct {
 
 var (
 	Workspace string
+	binDir    string
 )
 
 type VMProvider interface { //nolint:interfacebloat
@@ -131,9 +132,6 @@ type MachineConfig struct {
 	// RestAPISocks is the socks for rest api, it is used by appliance to connect to query the status of vm
 	// exec cmdline in vm etc...
 	RestAPISocks string `json:"restAPISocks" validate:"required"`
-	KrunKitBin   string `json:"krunKitBin"   validate:"required"`
-	VFKitBin     string `json:"vfKitBin"     validate:"required"`
-	GVProxyBin   string `json:"gvProxyBin"   validate:"required"`
 }
 
 type SSHAuthSocks struct {
@@ -266,4 +264,48 @@ func (mc *MachineConfig) Write() error {
 		return fmt.Errorf("failed to marshal machine config: %w", err)
 	}
 	return ioutils.AtomicWriteFile(mc.ConfigFile, b, define.DefaultFilePerm) //nolint:wrapcheck
+}
+
+// GetLocationDir return the installation dir of ovm
+func (mc *MachineConfig) getBinDir() (string, error) {
+	if binDir == "" {
+		execPath, err := os.Executable()
+		if err != nil {
+			return "", fmt.Errorf("unable to get executable path: %w", err)
+		}
+		execPath, err = filepath.EvalSymlinks(execPath)
+		if err != nil {
+			return "", fmt.Errorf("unable to eval symlinks: %w", err)
+		}
+		binDir = filepath.Dir(filepath.Dir(execPath))
+	}
+
+	return binDir, nil
+}
+
+func (mc *MachineConfig) GetKrunkitBin() (string, error) {
+	dir, err := mc.getBinDir()
+	if err != nil {
+		return "", fmt.Errorf("get location dir err: %w", err)
+	}
+
+	return filepath.Join(dir, define.Libexec, define.KrunkitBinaryName), nil
+}
+
+func (mc *MachineConfig) GetVfkitBin() (string, error) {
+	dir, err := mc.getBinDir()
+	if err != nil {
+		return "", fmt.Errorf("get location dir err: %w", err)
+	}
+
+	return filepath.Join(dir, define.Libexec, define.VfkitBinaryName), nil
+}
+
+func (mc *MachineConfig) GetGVProxyBin() (string, error) {
+	dir, err := mc.getBinDir()
+	if err != nil {
+		return "", fmt.Errorf("get location dir err: %w", err)
+	}
+
+	return filepath.Join(dir, define.Libexec, define.GvProxyBinaryName), nil
 }
