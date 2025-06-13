@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"bauklotze/pkg/machine/define"
 	"bauklotze/pkg/machine/fs"
@@ -29,8 +30,9 @@ type VMState struct {
 }
 
 var (
-	Workspace string
-	binDir    string
+	Workspace    string
+	binDir       string
+	binDirLocker sync.Mutex
 )
 
 type VMProvider interface { //nolint:interfacebloat
@@ -268,11 +270,15 @@ func (mc *MachineConfig) Write() error {
 
 // GetLocationDir return the installation dir of ovm
 func (mc *MachineConfig) getBinDir() (string, error) {
+	binDirLocker.Lock()
+	defer binDirLocker.Unlock()
+
 	if binDir == "" {
 		execPath, err := os.Executable()
 		if err != nil {
 			return "", fmt.Errorf("unable to get executable path: %w", err)
 		}
+
 		execPath, err = filepath.EvalSymlinks(execPath)
 		if err != nil {
 			return "", fmt.Errorf("unable to eval symlinks: %w", err)
@@ -286,7 +292,7 @@ func (mc *MachineConfig) getBinDir() (string, error) {
 func (mc *MachineConfig) GetKrunkitBin() (string, error) {
 	dir, err := mc.getBinDir()
 	if err != nil {
-		return "", fmt.Errorf("get location dir err: %w", err)
+		return "", fmt.Errorf("get bin dir err: %w", err)
 	}
 
 	return filepath.Join(dir, define.Libexec, define.KrunkitBinaryName), nil
@@ -295,7 +301,7 @@ func (mc *MachineConfig) GetKrunkitBin() (string, error) {
 func (mc *MachineConfig) GetVfkitBin() (string, error) {
 	dir, err := mc.getBinDir()
 	if err != nil {
-		return "", fmt.Errorf("get location dir err: %w", err)
+		return "", fmt.Errorf("get bin dir err: %w", err)
 	}
 
 	return filepath.Join(dir, define.Libexec, define.VfkitBinaryName), nil
@@ -304,7 +310,7 @@ func (mc *MachineConfig) GetVfkitBin() (string, error) {
 func (mc *MachineConfig) GetGVProxyBin() (string, error) {
 	dir, err := mc.getBinDir()
 	if err != nil {
-		return "", fmt.Errorf("get location dir err: %w", err)
+		return "", fmt.Errorf("get bin dir err: %w", err)
 	}
 
 	return filepath.Join(dir, define.Libexec, define.GvProxyBinaryName), nil
