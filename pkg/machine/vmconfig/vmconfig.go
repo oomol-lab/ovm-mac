@@ -109,11 +109,11 @@ func (mc *MachineConfig) GetSSHPort() error {
 }
 
 type MachineDirs struct {
-	ConfigDir string `json:"configDir" validate:"required"`
-	DataDir   string `json:"dataDir"   validate:"required"`
-	PidsDir   string `json:"pidsDir"   validate:"required"`
-	LogsDir   string `json:"logsDir"   validate:"required"`
-	SocksDir  string `json:"socksDir"  validate:"required"`
+	ConfigDir string `json:"configDir" validate:"required,dir"`
+	DataDir   string `json:"dataDir"   validate:"required,dir"`
+	PidsDir   string `json:"pidsDir"   validate:"required,dir"`
+	LogsDir   string `json:"logsDir"   validate:"required,dir"`
+	SocksDir  string `json:"socksDir"  validate:"required,dir"`
 }
 
 type MachineConfig struct {
@@ -157,19 +157,19 @@ type pidFiles struct {
 }
 
 type Bootable struct {
-	Path    string `json:"path"    validate:"required"`
+	Path    string `json:"path"    validate:"required,file"`
 	Version string `json:"version" validate:"required"`
 }
 
 type DataDisk struct {
-	Path    string `json:"path"    validate:"required"`
+	Path    string `json:"path"    validate:"required,file"`
 	Version string `json:"version" validate:"required"`
 }
 
 // SSHConfig contains remote access information for SSH
 type SSHConfig struct {
-	PrivateKeyPath string `json:"identityPath"   validate:"required"`
-	PublicKeyPath  string `json:"publicKeyPath"  validate:"required"`
+	PrivateKeyPath string `json:"identityPath"   validate:"required,file"`
+	PublicKeyPath  string `json:"publicKeyPath"  validate:"required,file"`
 	Port           int    `json:"port"           validate:"required"`
 	RemoteUsername string `json:"remoteUsername" validate:"required"`
 }
@@ -276,7 +276,7 @@ func (mc *MachineConfig) getBinDir() (string, error) {
 	if binDir != "" {
 		return binDir, nil
 	}
-	
+
 	execPath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("unable to get executable path: %w", err)
