@@ -47,9 +47,6 @@ func exec(ctx context.Context, mc *vmconfig.MachineConfig, command string, outCh
 		return fmt.Errorf("dial ssh error %w", err)
 	}
 	defer conn.Close() //nolint:errcheck
-	context.AfterFunc(ctx, func() {
-		_ = conn.Close()
-	})
 
 	session, err := conn.NewSession()
 	if err != nil {
@@ -57,6 +54,11 @@ func exec(ctx context.Context, mc *vmconfig.MachineConfig, command string, outCh
 		return fmt.Errorf("create session error %w", err)
 	}
 	defer session.Close() //nolint:errcheck
+
+	context.AfterFunc(ctx, func() {
+		_ = session.Signal(ssh.SIGKILL)
+		_ = conn.Close()
+	})
 
 	w := ch2Writer(outCh)
 	session.Stdout = w
@@ -107,6 +109,7 @@ func DoExec(w http.ResponseWriter, r *http.Request) {
 	doneCh := make(chan struct{}, 1)
 
 	go func() {
+		// when sse client closes the connection, the r.Context() get cancel immediately
 		if err := exec(r.Context(), mc, body.Command, outCh, errCh); err != nil {
 			logrus.Warn(err.Error())
 		}
