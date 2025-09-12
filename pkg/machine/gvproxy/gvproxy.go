@@ -32,9 +32,13 @@ func Start(ctx context.Context, mc *vmconfig.MachineConfig) error {
 	if err != nil {
 		return fmt.Errorf("unable to get gvproxy binary path: %w", err)
 	}
-	
+
 	gvpCmd := gvproxyTypes.NewGvproxyCommand()
-	gvpCmd.SSHPort = mc.SSH.Port
+
+	if err := mc.GetSSHPort(); err != nil {
+		return fmt.Errorf("unable to get available ssh port: %w", err)
+	}
+	
 	// gvproxy listen a local socks file as Podman API socks (PodmanSocks.InHost)
 	// and forward to the guest's Podman API socks(PodmanSocks.InGuest).
 	gvpCmd.AddForwardSock(mc.PodmanSocks.InHost)
