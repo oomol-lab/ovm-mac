@@ -52,6 +52,7 @@ linters:
     - exhaustruct
     - revive
     - funcorder
+    - noinlineerr
   settings:
     errcheck:
      check-blank: false
