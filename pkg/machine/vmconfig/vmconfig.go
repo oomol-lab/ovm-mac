@@ -291,6 +291,10 @@ func (mc *MachineConfig) getBinDir() (string, error) {
 	return binDir, nil
 }
 
+func (mc *MachineConfig) GetSourceDiskPath() string {
+	return filepath.Join(mc.Dirs.DataDir, "source.ext4")
+}
+
 func (mc *MachineConfig) GetKrunkitBin() (string, error) {
 	dir, err := mc.getBinDir()
 	if err != nil {

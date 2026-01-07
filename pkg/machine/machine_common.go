@@ -114,6 +114,7 @@ func SetupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bootable disk device: %w", err)
 	}
+
 	rng, err := vfConfig.VirtioRngNew()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rng device: %w", err)
@@ -125,6 +126,11 @@ func SetupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 		return nil, fmt.Errorf("failed to create externalDisk device: %w", err)
 	}
 
+	sourceDisk, err := vfConfig.VirtioBlkNew(mc.GetSourceDiskPath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create source disk device: %w", err)
+	}
+
 	// using gvproxy as network backend
 	netDevice, err := vfConfig.VirtioNetNew(applehvMACAddress)
 	if err != nil {
@@ -134,7 +140,7 @@ func SetupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 	netDevice.SetUnixSocketPath(mc.GetNetworkStackEndpoint())
 
 	// externalDisk **must** be at the end of the device
-	devices = append(devices, disk, rng, netDevice, externalDisk)
+	devices = append(devices, disk, rng, netDevice, externalDisk, sourceDisk)
 
 	VirtIOMounts, err := VirtIOFsToVFKitVirtIODevice(mc.Mounts)
 	if err != nil {

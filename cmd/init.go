@@ -65,7 +65,6 @@ var initCmd = cli.Command{
 			Value:    "v1.0",
 			Required: true,
 		},
-
 		&cli.StringFlag{
 			Name:  "vmm",
 			Usage: "vm provider, support: krunkit, vfkit",

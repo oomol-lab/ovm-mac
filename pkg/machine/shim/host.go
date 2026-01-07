@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"bauklotze/pkg/decompress"
 	"bauklotze/pkg/machine"
 	"bauklotze/pkg/machine/define"
+	"bauklotze/pkg/machine/disk"
 	"bauklotze/pkg/machine/events"
 	"bauklotze/pkg/machine/krunkit"
 	"bauklotze/pkg/machine/ssh/service"
@@ -95,14 +97,20 @@ func Start(parentCtx context.Context, mc *vmconfig.MachineConfig, vmp vmconfig.V
 
 		cancel(context.Cause(parentCtx))
 	})
+
 	// 1. Start the network stack
 	if err := vmp.StartNetworkProvider(ctx, mc); err != nil {
 		return fmt.Errorf("failed to start network stack: %w", err)
 	}
 
-	// 2. Start the VM provider
+	// 2. extract the source code disk
+	if err := disk.ExtractSourceCodeDisk(ctx, filepath.Dir(mc.GetSourceDiskPath()), false); err != nil {
+		return fmt.Errorf("failed to extract source code disk: %w", err)
+	}
+
+	// 3. Start the VM provider
 	if err := vmp.StartVMProvider(ctx, mc); err != nil {
-		return fmt.Errorf("failed to start network stack: %w", err)
+		return fmt.Errorf("failed to start vm provider: %w", err)
 	}
 
 	// Optional services are placed in separation go routines, these services will not crash the VM even if they fail
