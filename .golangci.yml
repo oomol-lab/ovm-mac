@@ -53,6 +53,7 @@ linters:
     - revive
     - funcorder
     - noinlineerr
+    - godoclint
   settings:
     errcheck:
      check-blank: false

@@ -110,7 +110,7 @@ const applehvMACAddress = "5a:94:ef:e4:0c:ee"
 func SetupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 	var devices []vfConfig.VirtioDevice
 
-	disk, err := vfConfig.VirtioBlkNew(mc.Bootable.Path)
+	bootableDisk, err := vfConfig.VirtioBlkNew(mc.Bootable.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bootable disk device: %w", err)
 	}
@@ -139,8 +139,8 @@ func SetupDevices(mc *vmconfig.MachineConfig) ([]vfConfig.VirtioDevice, error) {
 
 	netDevice.SetUnixSocketPath(mc.GetNetworkStackEndpoint())
 
-	// externalDisk **must** be at the end of the device
-	devices = append(devices, disk, rng, netDevice, externalDisk, sourceDisk)
+	// The externalDisk must be added to the devices queue after the bootableDisk
+	devices = append(devices, bootableDisk, rng, netDevice, externalDisk, sourceDisk)
 
 	VirtIOMounts, err := VirtIOFsToVFKitVirtIODevice(mc.Mounts)
 	if err != nil {
